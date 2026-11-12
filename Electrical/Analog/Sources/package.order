@@ -1,0 +1,15 @@
+FaultableConstantCurrent
+FaultableConstantVoltage
+FaultableCosineCurrent
+FaultableCosineVoltage
+FaultablePulseCurrent
+FaultablePulseVoltage
+FaultableRampCurrent
+FaultableRampVoltage
+FaultableSignalCurrent
+FaultableSignalVoltage
+FaultableSineCurrent
+FaultableSineVoltage
+FaultableStepCurrent
+FaultableStepVoltage
+FaultableSupplyVoltage
