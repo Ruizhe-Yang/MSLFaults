@@ -1,5 +1,5 @@
 within MSLFaults.Fluid;
-package Sensors "Sensors"
+package Sensors "Fluid measurements with signal faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -12,5 +12,5 @@ package Sensors "Sensors"
         Line(points={{0,0},{25.5,28.05}}, color={64,64,64}, thickness=0.9, pattern=LinePattern.Solid),
         Ellipse(extent={{-3.4,-3.4},{3.4,3.4}}, lineColor={64,64,64}, fillColor={64,64,64}, fillPattern=FillPattern.Solid, pattern=LinePattern.Solid, lineThickness=0.4),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Pressure, temperature, density, mass-flow and volume-flow measurements with configurable output faults. The physical sensing relation is retained.</p></html>"));
 end Sensors;

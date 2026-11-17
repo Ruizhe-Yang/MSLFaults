@@ -1,28 +1,28 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableRod "Rod without inertia"
+model FaultableRod "Rigid massless rod with an additional axial force"
   extends Modelica.Mechanics.Translational.Interfaces.PartialRigid;
-  type FaultMode=enumeration(Normal "正常", AxialForceDisturbance "轴向力扰动", RodDamage "杆损伤周期力", RodLock "杆卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Force forceFault=1;
-  parameter Modelica.Units.SI.Frequency damageFrequency=20;
-  Modelica.Units.SI.Force faultForceValue "故障引入的等效轴向外力";
+  type FaultMode=enumeration(Normal "Nominal component relation", AxialForceDisturbance "Prescribed additional axial force", RodDamage "Sinusoidal axial force", RodLock "Finite viscous resistance to rod motion");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.Force forceFault=1 "Amplitude of the prescribed additional axial force";
+  parameter Modelica.Units.SI.Frequency damageFrequency=20 "Frequency of the prescribed damage-related sinusoid";
+  Modelica.Units.SI.Force faultForceValue "Additional axial force entering the rod balance";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -43,11 +43,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Rod without inertia</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Force forceFault=1; parameter Modelica.Units.SI.Frequency damageFrequency=20; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> Rod without inertia</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced Rod</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.Rod</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableRod 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-A translational rod <strong>without inertia</strong> and two rigidly connected flanges.
-</p>
-</html>"),
+    Documentation(info="<html><p>AxialForceDisturbance applies a prescribed force, RodDamage applies a sinusoidal force, and RodLock adds viscous resistance to the absolute flange velocity. The rod retains its rigid length and zero inertia.</p><p>Connect both flanges and set the rigid length; choose forceFault and damageFrequency and inspect faultForceValue.</p><p>RodDamage does not change axial stiffness or disconnect the rod. The additional force is an external mechanical intervention with no explicit reaction port.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.Rod</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{
             100,100}}),
       graphics={

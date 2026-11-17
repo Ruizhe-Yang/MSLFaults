@@ -1,46 +1,46 @@
 within MSLFaults.Electrical.Analog.Ideal;
-model FaultableIdealDiode "Ideal diode with independent fault physics"
+model FaultableIdealDiode "Piecewise linear diode with conduction faults"
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
-  parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5 "Forward state-on differential resistance";
-  parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5 "Backward state-off conductance";
-  parameter Modelica.Units.SI.Voltage Vknee(final min=0)=0 "Forward threshold voltage";
+  parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5 "Resistance in the closed state";
+  parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5 "Conductance in the open state";
+  parameter Modelica.Units.SI.Voltage Vknee(final min=0)=0 "Nominal forward knee voltage";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort;
-  type FaultMode=enumeration(Normal "正常", OpenCircuit "强制开路", ShortCircuit "强制短路", ForwardVoltageDrift "正向压降漂移", LeakageIncrease "反向泄漏增加");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Resistance R_short=1e-6;
-  parameter Modelica.Units.SI.Conductance G_open=1e-10;
-  parameter Modelica.Units.SI.Conductance G_leakFault=1e-2;
-  parameter Modelica.Units.SI.Voltage VkneeFault=1;
-  Boolean off(start=true);
-  Boolean naturalOff;
+  type FaultMode=enumeration(Normal "Nominal behaviour", OpenCircuit "Finite open-circuit equivalent", ShortCircuit "Finite short-circuit equivalent", ForwardVoltageDrift "Forward-conduction voltage change", LeakageIncrease "Increased leakage conductance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter Modelica.Units.SI.Resistance R_short=1e-6 "Finite resistance representing a short circuit";
+  parameter Modelica.Units.SI.Conductance G_open=1e-10 "Finite conductance representing an open circuit";
+  parameter Modelica.Units.SI.Conductance G_leakFault=1e-2 "Leakage conductance at full effect";
+  parameter Modelica.Units.SI.Voltage VkneeFault=1 "Forward knee voltage at full effect";
+  Boolean off(start=true) "Effective open-state selection";
+  Boolean naturalOff "Open-state selection without forced-state faults";
   Real s(start=0,final unit="1");
-  constant Modelica.Units.SI.Voltage unitVoltage=1;
-  constant Modelica.Units.SI.Current unitCurrent=1;
-  Modelica.Units.SI.Resistance Ron_effective;
-  Modelica.Units.SI.Conductance Goff_effective;
-  Modelica.Units.SI.Voltage Vknee_effective;
+  constant Modelica.Units.SI.Voltage unitVoltage=1 "Voltage scale for the normalised characteristic";
+  constant Modelica.Units.SI.Current unitCurrent=1 "Current scale for the normalised characteristic";
+  Modelica.Units.SI.Resistance Ron_effective "Effective closed-state resistance";
+  Modelica.Units.SI.Conductance Goff_effective "Effective open-state conductance";
+  Modelica.Units.SI.Voltage Vknee_effective "Effective forward knee voltage";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -64,7 +64,7 @@ equation
 
 
   annotation(
-    Documentation(info="<html><p><b>Purpose</b> Ideal diode with independent fault physics</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5 \"Forward state-on differential resistance\"; parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5 \"Backward state-off conductance\"; parameter Modelica.Units.SI.Voltage Vknee(final min=0)=0 \"Forward threshold voltage\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Resistance R_short=1e-6; parameter Modelica.Units.SI.Conductance G_open=1e-10; parameter Modelica.Units.SI.Conductance G_leakFault=1e-2; parameter Modelica.Units.SI.Voltage VkneeFault=1</p><p><b>Behavior</b> Ideal diode with independent fault physics</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced IdealDiode</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Ideal.IdealDiode</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableIdealDiode 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p></html>"),
+    Documentation(info="<html><p>Retain a finite on-resistance, off-conductance and forward knee voltage. OpenCircuit forces the off relation once effectLevel&gt;0.5 and moves Goff towards G_open; ShortCircuit similarly forces the on relation and moves Ron towards R_short. Other modes modify Vknee or off-state leakage.</p><p>Connect p and n, configure the finite targets, and inspect off, the effective parameters and LossPower.</p><p>Forced on/off states require effectLevel&gt;0.5. ShortCircuit retains the configured knee voltage, so its terminal relation is not generally a pure resistor.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Ideal.IdealDiode</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Polygon(points={{30,0},{-30,40},{-30,-40},{30,0}}, lineColor={255,0,0}, fillColor={255,255,255}, fillPattern=FillPattern.Solid, lineThickness=0.75),

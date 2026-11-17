@@ -1,37 +1,37 @@
 within MSLFaults.Blocks.Nonlinear;
-block FaultableLimiter "Limit the range of a signal"
-  parameter Real uMax(start=1) "Upper limits of input signals";
-  parameter Real uMin= -uMax "Lower limits of input signals";
-  parameter Boolean strict=false "= true, if strict limits with noEvent(..)"
+block FaultableLimiter "Signal limiter with bound changes and a fixed-output fault"
+  parameter Real uMax(start=1) "Nominal upper limit";
+  parameter Real uMin= -uMax "Nominal lower limit";
+  parameter Boolean strict=false "Suppress events in the limiting relation when true"
     annotation (Evaluate=true, choices(checkBox=true), Dialog(tab="Advanced"));
-  parameter Modelica.Blocks.Types.LimiterHomotopy homotopyType = Modelica.Blocks.Types.LimiterHomotopy.Linear "Simplified model for homotopy-based initialization"
+  parameter Modelica.Blocks.Types.LimiterHomotopy homotopyType = Modelica.Blocks.Types.LimiterHomotopy.Linear "Initialisation approximation for the limiting relation"
     annotation (Evaluate=true, Dialog(group="Initialization"));
   extends Modelica.Blocks.Interfaces.SISO;
-  type FaultMode=enumeration(Normal, UpperLimitDrift, LowerLimitDrift, Stuck);
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Real upperFault=uMax;
-  parameter Real lowerFault=uMin;
-  parameter Real stuckValue=0;
+  type FaultMode=enumeration(Normal "Nominal component relation", UpperLimitDrift "Interpolate towards the upper-limit target", LowerLimitDrift "Interpolate towards the lower-limit target", Stuck "Blend towards the prescribed fixed output");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected component-specific fault mechanism";
+  parameter Real severity(min=0,max=1)=1 "Maximum activation-envelope level";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the internal fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the internal fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Time for a full unit-level transition";
+  parameter Real upperFault=uMax "Upper-limit target at full effect";
+  parameter Real lowerFault=uMin "Lower-limit target at full effect";
+  parameter Real stuckValue=0 "Prescribed output at full fixed-value effect";
   Real faultActivation,startActivation,endActivation;
   Real upperEffective,lowerEffective;
   Real limitedValue;
   protected
-  Real simplifiedExpr "Simplified expression for homotopy-based initialization";
+  Real simplifiedExpr "Simplified expression used during homotopy initialisation";
 
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable requests for the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use the external trigger instead of the internal fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External fault request when enabled by useExternalTrigger" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched fault state before transition shaping";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of activation starts, including initial activation";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -76,28 +76,7 @@ equation
   lowerEffective=if faultMode==FaultMode.LowerLimitDrift then uMin+faultActivation*(lowerFault-uMin) else uMin;
   y=if faultMode==FaultMode.Stuck then limitedValue+faultActivation*(stuckValue-limitedValue) else limitedValue;
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced limiter with native strictness and homotopy settings</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Real uMax(start=1) \"Upper limits of input signals\"; parameter Real uMin= -uMax \"Lower limits of input signals\"; parameter Boolean strict=false \"= true, if strict limits with noEvent(..)\"; parameter Modelica.Blocks.Types.LimiterHomotopy homotopyType = Modelica.Blocks.Types.LimiterHomotopy.Linear \"Simplified model for homotopy-based initialization\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real upperFault=uMax; parameter Real lowerFault=uMin; parameter Real stuckValue=0</p><p><b>Behavior</b> Fault-enhanced limiter with native strictness and homotopy settings</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> y; active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p><b>Purpose</b> Fault-enhanced Limiter</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Nominal strict and homotopy modes follow the native limiter. Invalid effective bounds are rejected.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Blocks.Nonlinear.Limiter</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p>
-<p>
-The Limiter block passes its input signal as output signal
-as long as the input is within the specified upper and lower
-limits. If this is not the case, the corresponding limits are passed
-as output.
-</p>
-<p>
-The parameter <code>homotopyType</code> in the Advanced tab specifies the
-simplified behaviour if homotopy-based initialization is used:
-</p>
-<ul>
-<li><code>NoHomotopy</code>: the actual expression with limits is used</li>
-<li><code>Linear</code>: a linear behaviour y = u is assumed (default option)</li>
-<li><code>UpperLimit</code>: it is assumed that the output is stuck at the upper limit u = uMax</li>
-<li><code>LowerLimit</code>: it is assumed that the output is stuck at the lower limit u = uMin</li>
-</ul>
-<p>
-If it is known a priori in which region the input signal will be located, this option can help
-a lot by removing one strong nonlinearity from the initialization problem.
-</p>
-</html>"), Icon(coordinateSystem(
+    Documentation(info="<html><p>Limit <code>u</code> between <code>uMin</code> and <code>uMax</code>. <code>UpperLimitDrift</code> or <code>LowerLimitDrift</code> interpolates the selected bound towards <code>upperFault</code> or <code>lowerFault</code>. The effective upper bound must remain at least the effective lower bound.</p><p><code>Stuck</code> blends the limited signal towards <code>stuckValue</code>, which may lie outside the bounds. <code>strict</code> controls event suppression in the limiting relation and <code>homotopyType</code> selects the initialisation approximation. Inspect <code>limitedValue</code>, <code>y</code> and the effective bounds.</p></html>"), Icon(coordinateSystem(
     preserveAspectRatio=true,
     extent={{-100,-100},{100,100}}),
       graphics={

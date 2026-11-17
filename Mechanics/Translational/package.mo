@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics;
-package Translational "Translational"
+package Translational "Translational fault models and measurements"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Translational "Translational"
         Line(points={{-37.4,48.45},{37.4,48.45}}, color={64,64,64}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Components and sensors for one-dimensional translational networks, including rotational-to-translational transmission. Use the documented flange orientation and physical sign convention.</p></html>"));
 end Translational;

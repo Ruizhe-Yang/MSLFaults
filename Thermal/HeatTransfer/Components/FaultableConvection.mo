@@ -1,6 +1,6 @@
 within MSLFaults.Thermal.HeatTransfer.Components;
 model FaultableConvection
-  "Lumped thermal element for heat convection (Q_flow = Gc*dT)"
+  "Convective heat transfer with conductance faults"
   Modelica.Units.SI.HeatFlowRate Q_flow "Heat flow rate from solid -> fluid";
   Modelica.Units.SI.TemperatureDifference dT "= solid.T - fluid.T";
   Modelica.Blocks.Interfaces.RealInput Gc(unit="W/K")
@@ -13,27 +13,27 @@ model FaultableConvection
             -110,-10},{-90,10}})));
   Modelica.Thermal.HeatTransfer.Interfaces.HeatPort_b fluid annotation (Placement(transformation(extent={{
             90,-10},{110,10}})));
-  type FaultMode=enumeration(Normal "正常", ConductanceDrift "对流热导漂移", Fouling "污垢降低换热", FlowLoss "流动丢失", Blockage "换热阻塞");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real conductanceScaleFault(min=0)=0.5;
-  Real Gc_effective(unit="W/K");
+  type FaultMode=enumeration(Normal "Nominal behaviour", ConductanceDrift "Change in thermal conductance", Fouling "Reduction of convective conductance", FlowLoss "Reduction of convective conductance", Blockage "Reduction of thermal conductance towards zero");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mechanism" ;
+  parameter Real severity(min=0,max=1)=1 "Maximum realised fault level" ;
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault window" ;
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal fault window" ;
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp" ;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope" ;
+  Real startActivation(min=0,max=1) "Fault envelope normalised by severity" ;
+  Real endActivation(min=0,max=1) "Indicator that activation or recovery is present" ;
+  parameter Real conductanceScaleFault(min=0)=0.5 "Full-effect scale of convective conductance" ;
+  Real Gc_effective(unit="W/K") "Fault-adjusted convective conductance" ;
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable the selected fault mechanism";
+  parameter Boolean useExternalTrigger=false "Use trigger to request activation instead of the internal time window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested fault activation";
+  output Real effectLevel(min=0,max=1) "Realised severity-scaled fault envelope";
+  output Integer activationCount "Number of rising fault activations";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -85,66 +85,7 @@ equation
         Text(extent={{22,124},{92,98}}, textString="Gc"),
         Text(extent={{108,94},{139,62}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> FaultableConvection</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.RealInput Gc(unit=\"W/K\"); Modelica.Thermal.HeatTransfer.Interfaces.HeatPort_a solid annotation (Placement(transformation(extent={{; Modelica.Thermal.HeatTransfer.Interfaces.HeatPort_b fluid annotation (Placement(transformation(extent={{; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real conductanceScaleFault(min=0)=0.5; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> FaultableConvection</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p><b>Purpose</b> Fault-enhanced Convection</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Heat flow is antisymmetric. The effective conductance is nonnegative.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Thermal.HeatTransfer.Components.Convection</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p>用法：将 FaultableConvection 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This is a model of linear heat convection, e.g., the heat transfer between a plate and the surrounding air; see also:
-<a href=\"modelica://Modelica.Thermal.HeatTransfer.Components.ConvectiveResistor\">ConvectiveResistor</a>.
-It may be used for complicated solid geometries and fluid flow over the solid by determining the
-convective thermal conductance Gc by measurements. The basic constitutive equation for convection is
-</p>
-<blockquote><pre>
-Q_flow = Gc*(solid.T - fluid.T);
-Q_flow: Heat flow rate from connector 'solid' (e.g., a plate)
-   to connector 'fluid' (e.g., the surrounding air)
-</pre></blockquote>
-<p>
-Gc = G.signal[1] is an input signal to the component, since Gc is
-nearly never constant in practice. For example, Gc may be a function
-of the speed of a cooling fan. For simple situations,
-Gc may be <em>calculated</em> according to
-</p>
-<blockquote><pre>
-Gc = A*h
-A: Convection area (e.g., perimeter*length of a box)
-h: Heat transfer coefficient
-</pre></blockquote>
-<p>
-where the heat transfer coefficient h is calculated
-from properties of the fluid flowing over the solid. Examples:
-</p>
-<p>
-<strong>Machines cooled by air</strong> (empirical, very rough approximation according
-to [<a href=\"modelica://Modelica.Thermal.HeatTransfer.UsersGuide.References\">Fischer2017</a>, p. 452]:
-</p>
-<blockquote><pre>
-h = 7.8*v^0.78 [W/(m2.K)] (forced convection)
-  = 12         [W/(m2.K)] (free convection)
-where
-  v: Air velocity in [m/s]
-</pre></blockquote>
-<p><strong>Laminar</strong> flow with constant velocity of a fluid along a
-<strong>flat plate</strong> where the heat flow rate from the plate
-to the fluid (= solid.Q_flow) is kept constant
-(according to [<a href=\"modelica://Modelica.Thermal.HeatTransfer.UsersGuide.References\">Holman2010</a>, p.265]):
-</p>
-<blockquote><pre>
-h  = Nu*k/x;
-Nu = 0.453*Re^(1/2)*Pr^(1/3);
-where
-   h  : Heat transfer coefficient
-   Nu : = h*x/k       (Nusselt number)
-   Re : = v*x*rho/mu  (Reynolds number)
-   Pr : = cp*mu/k     (Prandtl number)
-   v  : Absolute velocity of fluid
-   x  : distance from leading edge of flat plate
-   rho: density of fluid (material constant
-   mu : dynamic viscosity of fluid (material constant)
-   cp : specific heat capacity of fluid (material constant)
-   k  : thermal conductivity of fluid (material constant)
-and the equation for h holds, provided
-   Re &lt; 5e5 and 0.6 &lt; Pr &lt; 50
-</pre></blockquote>
-</html>"),
+    Documentation(info="<html><p>Transfer heat from <code>solid</code> to <code>fluid</code> using <code>Q_flow=Gc_effective*(solid.T-fluid.T)</code>. The input <code>Gc</code> supplies the nominal thermal conductance.</p><p><code>ConductanceDrift</code>, <code>Fouling</code> and <code>FlowLoss</code> share the same interpolation towards <code>conductanceScaleFault*Gc</code>. <code>Blockage</code> reduces conductance towards zero. The model conserves heat between its two ports and requires non-negative effective conductance.</p><p>The selected fault follows the reversible activation envelope. Read <code>effectLevel</code> during recovery as well as <code>active</code>. Nominal counterpart: <code>Modelica.Thermal.HeatTransfer.Components.Convection</code>.</p></html>"),
        Diagram(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},
             {100,100}}), graphics={
         Line(points={{100,0},{100,0}}, color={0,127,255}),

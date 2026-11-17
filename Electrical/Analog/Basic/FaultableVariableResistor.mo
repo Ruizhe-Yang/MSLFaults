@@ -1,15 +1,15 @@
 within MSLFaults.Electrical.Analog.Basic;
 model FaultableVariableResistor
-  "Ideal linear electrical resistor with variable resistance"
+  "Variable resistance with input and finite open/short faults"
   import SI = Modelica.Units.SI;
   parameter SI.Temperature T_ref=300.15 "Reference temperature";
   parameter SI.LinearTemperatureCoefficient alpha=0
-    "Temperature coefficient of resistance (R_actual = R*(1 + alpha*(T_heatPort - T_ref))";
+    "Linear resistance temperature coefficient";
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=T_ref);
   SI.Resistance R_actual
-    "Actual resistance = R*(1 + alpha*(T_heatPort - T_ref))";
-  Modelica.Blocks.Interfaces.RealInput R(unit="Ohm") annotation (Placement(
+    "Temperature-corrected resistance";
+  Modelica.Blocks.Interfaces.RealInput R(unit="Ohm") "Commanded reference resistance" annotation (Placement(
         transformation(
         origin={0,120},
         extent={{-20,-20},{20,20}},
@@ -17,35 +17,35 @@ model FaultableVariableResistor
         extent={{-20,-20},{20,20}},
         rotation=270,
         origin={0,120})));
-  type FaultMode = enumeration(Normal "正常", ResistanceScaleError "输入电阻比例误差", ResistanceBias "输入电阻偏置", OpenCircuit "有限大阻值开路", ShortCircuit "有限小阻值短路");
-  parameter FaultMode faultMode=FaultMode.Normal "故障模式";
-  parameter Real severity(min=0,max=1)=1 "故障严重度";
-  parameter SI.Time faultStartTime=1 "故障开始时刻";
-  parameter SI.Time faultEndTime=3 "故障结束时刻";
-  parameter SI.Time transitionTime(min=0)=0.05 "故障渐变时间";
-  Real faultActivation(min=0,max=1) "含严重度的故障激活量";
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real scaleFault=0.5 "比例故障目标";
-  parameter SI.Resistance biasFault=1 "偏置故障目标";
-  parameter SI.Resistance R_open=1e10 "开路有限大电阻";
-  parameter SI.Resistance R_short=1e-6 "短路有限小电阻";
-  SI.Resistance R_effective "故障后的命令电阻";
+  type FaultMode = enumeration(Normal "Nominal behaviour", ResistanceScaleError "Scale the commanded resistance", ResistanceBias "Bias the commanded resistance", OpenCircuit "Finite open-circuit equivalent", ShortCircuit "Finite short-circuit equivalent");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter Real scaleFault=0.5 "Input scale factor at full effect";
+  parameter SI.Resistance biasFault=1 "Additive offset at full effect in the input or output unit";
+  parameter SI.Resistance R_open=1e10 "Finite resistance representing an open circuit";
+  parameter SI.Resistance R_short=1e-6 "Finite resistance representing a short circuit";
+  SI.Resistance R_effective "Effective reference resistance";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -68,28 +68,7 @@ equation
 
 
   annotation (defaultComponentName="resistor",
-    Documentation(info="<html><p><b>Purpose</b> FaultableVariableResistor</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=T_ref); Modelica.Blocks.Interfaces.RealInput R(unit=\"Ohm\") annotation (Placement(; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter SI.Temperature T_ref=300.15 \"Reference temperature\"; parameter SI.LinearTemperatureCoefficient alpha=0; parameter FaultMode faultMode=FaultMode.Normal \"故障模式\"; parameter Real severity(min=0,max=1)=1 \"故障严重度\"; parameter SI.Time faultStartTime=1 \"故障开始时刻\"; parameter SI.Time faultEndTime=3 \"故障结束时刻\"; parameter SI.Time transitionTime(min=0)=0.05 \"故障渐变时间\"; parameter Real scaleFault=0.5 \"比例故障目标\"; parameter SI.Resistance biasFault=1 \"偏置故障目标\"; parameter SI.Resistance R_open=1e10 \"开路有限大电阻\"; parameter SI.Resistance R_short=1e-6 \"短路有限小电阻\"; parameter Boolean enabled=true \"Enable the selected fault mode\"</p><p><b>Behavior</b> FaultableVariableResistor</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced VariableResistor</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Basic.VariableResistor</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableVariableResistor 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>The linear resistor connects the branch voltage <em>v</em> with the branch current <em>i</em> by
-<br><em><strong>i*R = v</strong></em>
-<br>The Resistance <em>R</em> is given as input signal.
-<br><br><strong>Attention!!!</strong><br>It is recommended that the R signal should not cross the zero value. Otherwise depending on the surrounding circuit the probability of singularities is high.</p>
-</html>",
-        revisions="<html>
-<ul>
-<li><em> August 07, 2009   </em>
-       by Anton Haumer<br> temperature dependency of resistance added<br>
-       </li>
-<li><em> March 11, 2009   </em>
-       by Christoph Clauss<br> conditional heat port added<br>
-       </li>
-<li><em>June 7, 2004   </em>
-       by Christoph Clauss<br>changed, docu added<br>
-       </li>
-<li><em>April 30, 2004</em>
-       by Anton Haumer<br>implemented.
-       </li>
-</ul>
-</html>"),
+    Documentation(info="<html><p>Transform the commanded resistance by a scale error, additive bias or interpolation towards the finite open/short target. Apply the nominal linear temperature correction to obtain R_actual; the electrical loss is v*i.</p><p>Connect input R and the electrical pins; set scaleFault, biasFault or the corresponding finite target. Inspect R_effective and R_actual.</p><p>Choose targets that retain the intended passive behaviour and a positive temperature correction; the fault command is not clamped to a nonnegative value.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Basic.VariableResistor</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

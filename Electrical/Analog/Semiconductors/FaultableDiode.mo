@@ -1,59 +1,59 @@
 within MSLFaults.Electrical.Analog.Semiconductors;
-model FaultableDiode "Fault-enhanced MSL 4.0.0 PN diode"
+model FaultableDiode "PN diode with junction and leakage faults"
   import SI = Modelica.Units.SI;
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
   parameter SI.Current Ids=1e-6 "Saturation current";
   parameter Boolean useTemperatureDependency=false
-    annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
+    "Enable temperature-dependent electrical parameters" annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
   parameter SI.Voltage Vt(min=Modelica.Constants.small)=0.04
-    annotation(Dialog(enable=not useTemperatureDependency));
-  parameter Real Maxexp(final min=Modelica.Constants.small)=15;
+    "Nominal junction voltage scale" annotation(Dialog(enable=not useTemperatureDependency));
+  parameter Real Maxexp(final min=Modelica.Constants.small)=15 "Upper argument for exponential-to-linear continuation";
   parameter SI.Resistance R=1e8 "Parallel ohmic resistance";
-  parameter Real EG=1.11 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real N=1 annotation(Dialog(enable=useTemperatureDependency));
-  parameter SI.Temperature TNOM=300.15 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real XTI=3 annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real EG=1.11 "Semiconductor energy-gap parameter" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real N=1 "Junction emission coefficient" annotation(Dialog(enable=useTemperatureDependency));
+  parameter SI.Temperature TNOM=300.15 "Nominal junction temperature" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real XTI=3 "Temperature exponent of saturation current" annotation(Dialog(enable=useTemperatureDependency));
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(
     useHeatPort=useTemperatureDependency);
 
   type FaultMode=enumeration(
-    Normal "Nominal MSL behavior",
+    Normal "Nominal behaviour",
     SaturationCurrentDrift "Progressive transport saturation-current drift",
-    ForwardVoltageDrift "Progressive forward I-V voltage-scale drift",
+    ForwardVoltageDrift "Forward-conduction voltage change",
     ReverseLeakageIncrease "Parallel reverse-leakage increase",
-    OpenCircuit "Suppress junction conduction and retain a finite high resistance",
-    ShortCircuit "Finite low-resistance shunt");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
+    OpenCircuit "Finite open-circuit equivalent",
+    ShortCircuit "Finite short-circuit equivalent");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
   parameter SI.Current IdsFault=10*Ids "Saturation current at completed drift";
-  parameter SI.Voltage VtFault=1.5*Vt "Voltage scale at completed drift";
-  parameter SI.Resistance RLeakFault=R/100 "Parallel resistance after leakage growth";
-  parameter SI.Resistance ROpen=1e12 "Finite open resistance";
-  parameter SI.Resistance RShort=1e-6 "Finite short resistance";
+  parameter SI.Voltage VtFault=1.5*Vt "Junction voltage scale at completed drift";
+  parameter SI.Resistance RLeakFault=R/100 "Parallel resistance at full leakage effect";
+  parameter SI.Resistance ROpen=1e12 "Finite open-circuit resistance";
+  parameter SI.Resistance RShort=1e-6 "Finite short-circuit resistance";
 
   SI.Voltage vt_t;
   SI.Voltage junctionVoltageScale;
   SI.Current id;
-  SI.Current Ids_effective;
-  SI.Voltage Vt_effective;
-  SI.Resistance R_effective;
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  Real diodeConductionFactor(min=0,max=1);
+  SI.Current Ids_effective "Effective saturation current";
+  SI.Voltage Vt_effective "Effective junction voltage scale";
+  SI.Resistance R_effective "Effective parallel junction resistance";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  Real diodeConductionFactor(min=0,max=1) "Remaining fraction of semiconductor conduction";
 protected
   SI.Temperature htemp;
   Real aux;
   Real auxp;
   function exlinLocal
     input Real x;
-    input Real Maxexp;
+    input Real Maxexp "Upper argument for exponential-to-linear continuation";
     output Real y;
   algorithm
     y:=if x>Maxexp then exp(Maxexp)*(1+x-Maxexp) else exp(x);
@@ -61,18 +61,18 @@ protected
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -116,15 +116,7 @@ equation
 
 
   annotation(defaultComponentName="diode",
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced MSL 4.0.0 PN diode</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(</p><p><b>Parameters</b> parameter SI.Current Ids=1e-6 \"Saturation current\"; parameter Boolean useTemperatureDependency=false; parameter SI.Voltage Vt(min=Modelica.Constants.small)=0.04; parameter Real Maxexp(final min=Modelica.Constants.small)=15; parameter SI.Resistance R=1e8 \"Parallel ohmic resistance\"; parameter Real EG=1.11; parameter Real N=1; parameter SI.Temperature TNOM=300.15; parameter Real XTI=3; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter SI.Time faultStartTime=1</p><p><b>Behavior</b> Fault-enhanced MSL 4.0.0 PN diode</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced Diode</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Semiconductors.Diode</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableDiode 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>Copies the MSL 4.0.0 diode constitutive equation and exposes separate effective
-parameters for saturation-current drift, forward voltage-scale drift and reverse
-leakage. Open and short circuits use finite conductances without changing topology.
-Normal mode and zero severity reproduce the original equations.</p>
-<p><b>Evidence:</b> NASA radiation reports observe increased diode forward voltage
-and reverse leakage (NTRS 19720010112, 19700022435, 20210018053). Evidence level A
-for parameter direction and B/C for this lumped equation mapping.</p>
-</html>"),
+    Documentation(info="<html><p>Use an exponential junction law with linear continuation beyond Maxexp. SaturationCurrentDrift and ForwardVoltageDrift use driftTime; ReverseLeakageIncrease lowers the parallel resistance. OpenCircuit suppresses junction conduction and raises that resistance, while ShortCircuit introduces a finite low-resistance shunt.</p><p>Connect p and n; set the selected current, voltage-scale or resistance target. With temperature dependence enabled, connect heatPort and inspect LossPower.</p><p>ForwardVoltageDrift changes the junction voltage scale rather than imposing a constant forward voltage. ShortCircuit retains the semiconductor branch.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Semiconductors.Diode</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Polygon(points={{30,0},{-30,40},{-30,-40},{30,0}}, lineColor={255,0,0}, fillColor={255,255,255}, fillPattern=FillPattern.Solid, lineThickness=0.75),

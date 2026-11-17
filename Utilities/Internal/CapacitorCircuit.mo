@@ -1,6 +1,6 @@
 within MSLFaults.Utilities.Internal;
-model CapacitorCircuit "Compare branches with a common electrical excitation"
-  parameter Modelica.Units.SI.Time stepTime=0.2;
+model CapacitorCircuit "RC charging circuit with a replaceable capacitor"
+  parameter Modelica.Units.SI.Time stepTime=0.2 "Start of the applied voltage step";
   Modelica.Electrical.Analog.Sources.StepVoltage voltage(V=10,startTime=stepTime) annotation(Placement(transformation(origin={-151,12},extent={{-12,-12},{12,12}},rotation=270)));
   Modelica.Electrical.Analog.Basic.Resistor series(R=1000) annotation(Placement(transformation(origin={-68,76},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Electrical.Analog.Basic.Ground ground annotation(Placement(transformation(origin={-151,-66},extent={{-12,-12},{12,12}},rotation=0)));
@@ -25,5 +25,5 @@ equation
         Line(points={{48,-42},{60,-29}}, color={64,64,64}, thickness=0.75, pattern=LinePattern.Solid),
         Line(points={{68,-42},{74,-42},{74,28},{56,28}}, color={0,0,255}, thickness=0.6, pattern=LinePattern.Solid),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Compare branches with a common electrical excitation</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> readout</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.CapacitorDegradation\">MSLFaults.Examples.CapacitorDegradation</a></p></html>"));
+      }),Documentation(info="<html><p>A 10 V step drives a 1 kΩ series resistor and a replaceable capacitor. The capacitor constraint specifies 1 mF and a fixed zero initial voltage. The output <code>readout</code> is the capacitor voltage.</p><p>Redeclare device and preserve its nominal C and voltage initialisation; compare readout under the same stepTime.</p></html>"));
 end CapacitorCircuit;

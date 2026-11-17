@@ -1,5 +1,5 @@
 within MSLFaults.Electrical.Analog.Semiconductors;
-model FaultableNMOS "Fault-enhanced MSL 4.0.0 NMOS"
+model FaultableNMOS "N-channel MOS transistor with channel and leakage faults"
   import SI = Modelica.Units.SI;
   Modelica.Electrical.Analog.Interfaces.Pin D "Drain"
     annotation (Placement(transformation(extent={{90,50},{110,70}}), iconTransformation(extent={{90,50},{110,70}})));
@@ -9,58 +9,58 @@ model FaultableNMOS "Fault-enhanced MSL 4.0.0 NMOS"
     annotation (Placement(transformation(extent={{90,-50},{110,-70}}), iconTransformation(extent={{90,-50},{110,-70}})));
   Modelica.Electrical.Analog.Interfaces.Pin B "Bulk"
     annotation (Placement(transformation(extent={{90,-10},{110,10}})));
-  parameter SI.Length W=20e-6 "Width";
-  parameter SI.Length L=6e-6 "Length";
-  parameter SI.Transconductance Beta=0.041e-3 "Transconductance parameter";
-  parameter SI.Voltage Vt=0.8 "Zero-bias threshold voltage";
-  parameter Real K2=1.144 "Bulk threshold parameter";
-  parameter Real K5=0.7311 "Reduction of pinch-off region";
-  parameter SI.Length dW=-2.5e-6 "Narrowing of channel";
-  parameter SI.Length dL=-1.5e-6 "Shortening of channel";
-  parameter SI.Resistance RDS=1e7 "Nominal drain-source resistance";
+  parameter SI.Length W=20e-6 "Nominal channel width";
+  parameter SI.Length L=6e-6 "Nominal channel length";
+  parameter SI.Transconductance Beta=0.041e-3 "Nominal channel transconductance parameter";
+  parameter SI.Voltage Vt=0.8 "Nominal threshold voltage";
+  parameter Real K2=1.144 "Bulk-voltage threshold coefficient";
+  parameter Real K5=0.7311 "Pinch-off correction factor";
+  parameter SI.Length dW=-2.5e-6 "Channel-width correction";
+  parameter SI.Length dL=-1.5e-6 "Channel-length correction";
+  parameter SI.Resistance RDS=1e7 "Nominal drain-source shunt resistance";
   parameter Boolean useTemperatureDependency=false
-    annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
-  parameter SI.Temperature Tnom=300.15 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real kvt=-6.96e-3 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real kk2=6e-4 annotation(Dialog(enable=useTemperatureDependency));
+    "Enable temperature-dependent electrical parameters" annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
+  parameter SI.Temperature Tnom=300.15 "Nominal semiconductor temperature" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real kvt=-6.96e-3 "Temperature coefficient of threshold voltage" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real kk2=6e-4 "Temperature coefficient of the bulk factor" annotation(Dialog(enable=useTemperatureDependency));
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(
     useHeatPort=useTemperatureDependency);
 
   type FaultMode=enumeration(
-    Normal "Nominal MSL behavior",
+    Normal "Nominal behaviour",
     ThresholdVoltageDrift "Progressive threshold-voltage shift",
     TransconductanceLoss "Progressive channel transconductance loss",
     DrainSourceLeakage "Off-state drain-source leakage increase",
     OnResistanceIncrease "On-state channel conduction degradation",
-    OpenCircuit "Channel interruption with finite residual leakage",
-    ShortCircuit "Finite drain-source short circuit",
+    OpenCircuit "Finite open-circuit equivalent",
+    ShortCircuit "Finite short-circuit equivalent",
     StuckOn "Gate-independent forced channel conduction",
     StuckOff "Gate/channel conduction suppressed with nominal leakage retained");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter SI.Voltage VtFault=Vt+0.5 "Threshold at completed drift";
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter SI.Voltage VtFault=Vt+0.5 "Threshold voltage at completed drift";
   parameter SI.Transconductance BetaFault=0.5*Beta
-    "Transconductance parameter at completed loss";
-  parameter SI.Resistance RDSLeakFault=1e4 "Resistance after leakage growth";
-  parameter SI.Resistance ROpen=1e12 "Finite open resistance";
-  parameter SI.Resistance RShort=1e-3 "Finite short resistance";
+    "Transconductance parameter at completed drift";
+  parameter SI.Resistance RDSLeakFault=1e4 "Drain-source resistance at full leakage effect";
+  parameter SI.Resistance ROpen=1e12 "Finite open-circuit resistance";
+  parameter SI.Resistance RShort=1e-3 "Finite short-circuit resistance";
   parameter Real onResistanceFactor(min=1)=5
-    "Equivalent RDS(on) multiplier at completed degradation";
+    "Channel-resistance multiplier at full effect";
   parameter SI.Voltage stuckOnOverdrive=5
-    "Effective positive gate overdrive at completed StuckOn";
+    "Prescribed channel overdrive at full StuckOn effect";
 
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  SI.Transconductance Beta_effective;
-  SI.Voltage Vt_effective;
-  SI.Resistance RDS_effective;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  SI.Transconductance Beta_effective "Effective channel transconductance parameter";
+  SI.Voltage Vt_effective "Effective threshold voltage";
+  SI.Resistance RDS_effective "Effective drain-source shunt resistance";
 protected
   Real v;
   Real uds;
@@ -75,22 +75,22 @@ protected
   Real beta_t;
   Real vt_t;
   Real k2_t;
-  Real channelFactor(min=0,max=1);
+  Real channelFactor(min=0,max=1) "Multiplier applied to channel conduction";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -140,17 +140,7 @@ equation
 
 
   annotation(defaultComponentName="nMOS",
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced MSL 4.0.0 NMOS</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(</p><p><b>Parameters</b> parameter SI.Length W=20e-6 \"Width\"; parameter SI.Length L=6e-6 \"Length\"; parameter SI.Transconductance Beta=0.041e-3 \"Transconductance parameter\"; parameter SI.Voltage Vt=0.8 \"Zero-bias threshold voltage\"; parameter Real K2=1.144 \"Bulk threshold parameter\"; parameter Real K5=0.7311 \"Reduction of pinch-off region\"; parameter SI.Length dW=-2.5e-6 \"Narrowing of channel\"; parameter SI.Length dL=-1.5e-6 \"Shortening of channel\"; parameter SI.Resistance RDS=1e7 \"Nominal drain-source resistance\"; parameter Boolean useTemperatureDependency=false; parameter SI.Temperature Tnom=300.15; parameter Real kvt=-6.96e-3</p><p><b>Behavior</b> Fault-enhanced MSL 4.0.0 NMOS</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced NMOS</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Semiconductors.NMOS</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableNMOS 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p><p>Independent copy of the MSL 4.0.0 NMOS equations
-with fault-effective threshold voltage, transconductance and drain-source
-resistance. On-state resistance growth attenuates only channel conduction and is
-therefore not confused with the MSL off-state parallel <code>RDS</code>.
-<code>StuckOn</code> forces a calibrated positive gate overdrive while
-<code>StuckOff</code> suppresses channel conduction but retains nominal leakage.
-Normal mode and zero severity are equation-equivalent to MSL.</p>
-<p>NASA radiation data support threshold shift, transconductance change and leakage
-growth (NTRS 19720005118); power/thermal cycling supports increasing on-state
-resistance as a degradation precursor (NTRS 20140010629). Evidence level A/B;
-open/short are level C finite-impedance abstractions.</p></html>"),
+    Documentation(info="<html><p>Modify threshold voltage or transconductance progressively using driftTime. DrainSourceLeakage and ShortCircuit change the parallel drain-source resistance. OpenCircuit suppresses channel current and raises that resistance; StuckOff suppresses the channel while retaining nominal leakage. StuckOn interpolates the effective overdrive towards stuckOnOverdrive. OnResistanceIncrease reduces channel conduction.</p><p>Connect D, G, S and B, retain valid effective channel dimensions, and set the relevant target. Use the sign of stuckOnOverdrive appropriate to the channel polarity.</p><p>StuckOn is an overdrive model, not a forced constant resistance. ShortCircuit retains the channel law; gate and bulk currents remain zero.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Semiconductors.NMOS</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{-90,-60},{-10,-60}}, color={0,0,255}, thickness=0.5),

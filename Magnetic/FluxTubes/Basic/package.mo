@@ -1,5 +1,5 @@
 within MSLFaults.Magnetic.FluxTubes;
-package Basic "Basic"
+package Basic "Magnetic paths and converters with configurable faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Basic "Basic"
         Line(points={{55.25,0},{68,0}}, color={255,127,0}, thickness=0.7, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Constant and signal-controlled permeance or reluctance, eddy-current effects, leakage and electromagnetic converters. CoreCrack and WindingOpen latch only in the classes that explicitly declare them permanent.</p></html>"));
 end Basic;

@@ -1,6 +1,6 @@
 within MSLFaults.Mechanics.Rotational.Components;
 model FaultableElastoBacklash2
-  "Backlash connected in series to linear spring and damper (backlash is modeled with elasticity; at start of contact the flange torque can jump, contrary to the ElastoBacklash model)"
+  "Rotational backlash with stiffness, damping and tooth-loss faults and contact jumps"
 
   parameter Modelica.Units.SI.RotationalSpringConstant c(final min=Modelica.Constants.small,
       start=1.0e5) "Spring constant (c > 0 required)";
@@ -13,24 +13,24 @@ model FaultableElastoBacklash2
     Modelica.Mechanics.Rotational.Interfaces.PartialCompliantWithRelativeStates;
   extends
     Modelica.Thermal.HeatTransfer.Interfaces.PartialElementaryConditionalHeatPortWithoutT;
-  type FaultMode=enumeration(Normal "正常", StiffnessLoss "刚度下降", DampingLoss "阻尼下降", BacklashIncrease "侧隙增加", ToothBroken "断齿", Seizure "卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.RotationalSpringConstant cFault=0.5*c;
-  parameter Modelica.Units.SI.RotationalDampingConstant dFault=0.5*d;
-  parameter Modelica.Units.SI.Angle bFault=b+0.1;
-  parameter Modelica.Units.SI.RotationalDampingConstant dSeized=1e9;
-  Modelica.Units.SI.RotationalSpringConstant c_effective;
-  Modelica.Units.SI.RotationalDampingConstant d_effective;
-  Modelica.Units.SI.Angle b_effective;
-  Modelica.Units.SI.Angle bMax_effective;
-  Modelica.Units.SI.Angle bMin_effective;
+  type FaultMode=enumeration(Normal "Nominal component relation", StiffnessLoss "Reduced stiffness", DampingLoss "Reduced damping", BacklashIncrease "Increased angular backlash", ToothBroken "Latched loss of stiffness and damping", Seizure "Increased finite mechanical resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.RotationalSpringConstant cFault=0.5*c "Stiffness target for the selected fault law";
+  parameter Modelica.Units.SI.RotationalDampingConstant dFault=0.5*d "Damping target for the selected fault law";
+  parameter Modelica.Units.SI.Angle bFault=b+0.1 "Total backlash at full effect";
+  parameter Modelica.Units.SI.RotationalDampingConstant dSeized=1e9 "Finite damping at full seizure effect";
+  Modelica.Units.SI.RotationalSpringConstant c_effective "Stiffness used by the constitutive relation";
+  Modelica.Units.SI.RotationalDampingConstant d_effective "Damping used by the constitutive relation";
+  Modelica.Units.SI.Angle b_effective "Effective total angular backlash";
+  Modelica.Units.SI.Angle bMax_effective "Upper boundary of the unloaded angular gap";
+  Modelica.Units.SI.Angle bMin_effective "Lower boundary of the unloaded angular gap";
 protected
   final parameter Modelica.Units.SI.Angle bMax=b/2
     "Backlash in range bMin <= phi_rel - phi_rel0 <= bMax";
@@ -46,14 +46,14 @@ protected
 
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -76,8 +76,8 @@ equation
   bMin_effective=-b_effective/2;
 
   if initial() then
-    /* During initialization the characteristic is modified, in order that
-        it is a strict monotone rising function. Otherwise, initialization might
+    /* During initialisation the characteristic is modified, in order that
+        it is a strict monotone rising function. Otherwise, initialisation might
         result in a singular system when the characteristic has to be
         inverted. The characteristic is modified in the range 1.5*bMin_effective <= phi_rel - phi_rel0 <= 1.5 bMax_effective,
         so that in this range a linear characteristic is present that approaches the original
@@ -145,101 +145,7 @@ equation
 
 
   annotation (defaultComponentName="elastoBacklash",
-    Documentation(info="<html><p><b>Purpose</b> FaultableElastoBacklash2</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Modelica.Units.SI.RotationalSpringConstant c(final min=Modelica.Constants.small,; parameter Modelica.Units.SI.RotationalDampingConstant d(final min=0, start=0); parameter Modelica.Units.SI.Angle b(final min=0)=0 \"Total backlash\"; parameter Modelica.Units.SI.Angle phi_rel0=0 \"Unstretched spring angle\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.RotationalSpringConstant cFault=0.5*c; parameter Modelica.Units.SI.RotationalDampingConstant dFault=0.5*d; parameter Modelica.Units.SI.Angle bFault=b+0.1</p><p><b>Behavior</b> FaultableElastoBacklash2</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced ElastoBacklash2</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery. ToothBroken latch until a new simulation. faultEndTime does not repair a latched fault.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.ElastoBacklash2</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableElastoBacklash2 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This element consists of a <strong>backlash</strong> element <strong>connected in series</strong>
-to a <strong>spring</strong> and <strong>damper</strong> element which are <strong>connected in parallel</strong>.
-The spring constant shall be non-zero, otherwise the component cannot be used.
-</p>
-
-<p>
-In combination with components IdealGear, the ElastoBacklash2 model
-can be used to model a gear box with backlash, elasticity and damping.
-</p>
-
-<p>
-During initialization, the backlash characteristic is replaced by a continuous
-approximation in the backlash region, in order to reduce problems during
-initialization, especially for inverse models.
-</p>
-
-<p>
-If the backlash b is smaller as 1e-10 rad (especially, if b=0),
-then the backlash is ignored and the component reduces to a spring/damper
-element in parallel.
-</p>
-
-<p>
-In the backlash region (-b/2 &le; flange_b.phi - flange_a.phi - phi_rel0 &le; b/2) no torque
-is exerted (flange_b.tau = 0). Outside of this region, contact is present and
-the contact torque is basically computed with a linear
-spring/damper characteristic:
-</p>
-
-<blockquote><pre>
-desiredContactTorque = c_effective*phi_contact + d_effective*<strong>der</strong>(phi_contact)
-
-         phi_contact = phi_rel - phi_rel0 - b/2 <strong>if</strong> phi_rel - phi_rel0 &gt;  b/2
-                     = phi_rel - phi_rel0 + b/2 <strong>if</strong> phi_rel - phi_rel0 &lt; -b/2
-
-         phi_rel     = flange_b.phi - flange_a.phi;
-</pre></blockquote>
-
-<p>
-This torque characteristic leads to the following difficulty:
-</p>
-
-<ul>
-<li> If the damper torque becomes larger as the spring torque and with opposite sign,
-     the contact torque would be \"pulling/sticking\" which is unphysical, since during
-     contact only pushing torques can occur.</li>
-</ul>
-
-<p>
-In the literature this issue seems to be not discussed. For this reason, the most simple
-approach is used in the ElastoBacklash2 model, by slightly changing
-the linear spring/damper characteristic to:
-</p>
-
-<blockquote><pre>
-// Torque characteristic when phi_rel > phi_rel0
-<strong>if</strong> phi_rel - phi_rel0 &lt; b/2 <strong>then</strong>
-   tau_c = 0;          // spring torque
-   tau_d = 0;          // damper torque
-   flange_b.tau = 0;
-<strong>else</strong>
-   tau_c = c_effective*(phi_rel - phi_rel0);    // spring torque
-   tau_d = d_effective*<strong>der</strong>(phi_rel);            // damper torque
-   flange_b.tau = <strong>if</strong> tau_c + tau_d &le; 0 <strong>then</strong> 0 <strong>else</strong> tau_c + tau_d;
-<strong>end if</strong>;
-</pre></blockquote>
-
-<p>
-Note, when sticking would occur (tau_c + tau_d &le; 0), then the contact torque
-is explicitly set to zero.
-</p>
-
-<p>
-This model of backlash is slightly different to the
-<a href=\"modelica://Modelica.Mechanics.Rotational.Components.ElastoBacklash\">ElastoBacklash</a>
-component:
-</p>
-
-<ul>
-<li> An event occurs when contact occurs or when contact is released (contrary to the ElastoBacklash component).</li>
-<li> When contact occurs, the torque changes discontinuously, due to the damping.
-     The damping is larger as for the ElastoBacklash component (for the same damping coefficient),
-    because the ElastoBacklash component has a heuristic to avoid the discontinuity of the torque when contact occurs.</li>
-<li> For some models, the ElastoBacklash2 component leads to faster simulations
-      (as compared when using the ElastBacklash component).</li>
-</ul>
-
-<p>
-See also the discussion
-<a href=\"modelica://Modelica.Mechanics.Rotational.UsersGuide.StateSelection\">State Selection</a>
-in the User's Guide of the Rotational library.
-</p>
-</html>"),
+    Documentation(info="<html><p>StiffnessLoss and DampingLoss change c and d; BacklashIncrease changes the total unloaded angular gap. ToothBroken latches and reduces both stiffness and damping towards zero. Seizure raises the damping. The contact law clips the total spring and damping torque; torque may jump when contact begins.</p><p>Connect the shaft flanges; set c, d, total backlash b and the corresponding fault target. Inspect phi_rel and tau.</p><p>The initial contact characteristic is regularised. ToothBroken remains active after the trigger or time window ends; full severity removes stiffness and damping.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.ElastoBacklash2</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=false,
       extent={{-100,-100},{100,100}}),
       graphics={

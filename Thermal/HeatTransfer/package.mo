@@ -1,5 +1,5 @@
 within MSLFaults.Thermal;
-package HeatTransfer "HeatTransfer"
+package HeatTransfer "Heat transfer, storage and thermal measurements"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,5 +8,5 @@ package HeatTransfer "HeatTransfer"
         Line(points={{-26.35,15.3},{26.35,15.3}}, color={191,0,0}, thickness=0.9, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Line(points={{26.35,-15.3},{-26.35,-15.3}}, color={191,0,0}, thickness=0.9, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Thermal capacities, transfer paths, signal adaptation and measurements for <code>Modelica.Thermal.HeatTransfer</code> networks.</p></html>"));
 end HeatTransfer;

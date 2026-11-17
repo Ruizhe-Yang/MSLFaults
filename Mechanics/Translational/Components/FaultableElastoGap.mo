@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableElastoGap "1D translational spring damper combination with gap"
+model FaultableElastoGap "Unilateral elastic contact with stiffness, damping and gap faults"
   extends Modelica.Mechanics.Translational.Interfaces.PartialCompliantWithRelativeStates;
   parameter Modelica.Units.SI.TranslationalSpringConstant c(final min=0, start=1)
     "Spring constant";
@@ -11,27 +11,27 @@ model FaultableElastoGap "1D translational spring damper combination with gap"
   extends Modelica.Thermal.HeatTransfer.Interfaces.PartialElementaryConditionalHeatPortWithoutT;
 
   /*
-Please note that initialization might fail due to the nonlinear spring characteristic
+Please note that initialisation might fail due to the nonlinear spring characteristic
 (spring force is zero for s_rel > s_rel0)
 if a positive force is acting on the element and no other force balances this force
 (e.g., when setting both initial velocity and acceleration to 0)
 */
   Boolean contact "= true, if contact, otherwise no contact";
-  type FaultMode=enumeration(Normal "正常", StiffnessLoss "接触刚度下降", DampingLoss "接触阻尼下降", GapShift "间隙漂移", ContactLoss "失去接触", JammedContact "接触卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c;
-  parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d;
-  parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01;
-  Modelica.Units.SI.TranslationalSpringConstant c_effective;
-  Modelica.Units.SI.TranslationalDampingConstant d_effective;
-  Modelica.Units.SI.Position s_rel0_effective;
+  type FaultMode=enumeration(Normal "Nominal component relation", StiffnessLoss "Reduced stiffness", DampingLoss "Reduced damping", GapShift "Changed contact threshold", ContactLoss "Reduced contact stiffness and damping", JammedContact "Increased finite contact stiffness");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c "Stiffness target for the selected fault law";
+  parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d "Damping target for the selected fault law";
+  parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01 "Unstretched length or contact coordinate at full shift effect";
+  Modelica.Units.SI.TranslationalSpringConstant c_effective "Stiffness used by the constitutive relation";
+  Modelica.Units.SI.TranslationalDampingConstant d_effective "Damping used by the constitutive relation";
+  Modelica.Units.SI.Position s_rel0_effective "Effective unstretched length or contact threshold";
 protected
   Modelica.Units.SI.Force f_c "Spring force";
   Modelica.Units.SI.Force f_d2 "Linear damping force";
@@ -39,14 +39,14 @@ protected
     "Linear damping force which is limited by spring force (|f_d| <= |f_c|)";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -77,108 +77,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> 1D translational spring damper combination with gap</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Modelica.Units.SI.TranslationalSpringConstant c(final min=0, start=1); parameter Modelica.Units.SI.TranslationalDampingConstant d(final min=0, start=1); parameter Modelica.Units.SI.Position s_rel0=0 \"Unstretched spring length\"; parameter Real n(final min=1) = 1; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c; parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d; parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01</p><p><b>Behavior</b> 1D translational spring damper combination with gap</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced ElastoGap</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.ElastoGap</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableElastoGap 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This component models a spring damper combination that can lift off.
-It can be connected between a sliding mass and the housing (model
-<a href=\"modelica://Modelica.Mechanics.Translational.Components.Fixed\">Fixed</a>),
-to describe the contact of a sliding mass with the housing.
-</p>
-
-<p>
-As long as s_rel &gt; s_rel0, no force is exerted (s_rel = flange_b.s - flange_a.s).
-If s_rel &le; s_rel0, the contact force is basically computed with a linear
-spring/damper characteristic. With parameter n&ge;1 (exponent of spring force),
-a nonlinear spring force can be modeled:
-</p>
-
-<blockquote><pre>
-desiredContactForce = c*|s_rel - s_rel0|^n + d*<strong>der</strong>(s_rel)
-</pre></blockquote>
-
-<p>
-Note, Hertzian contact is described by:
-</p>
-<ul>
-<li> Contact between two metallic spheres: n=1.5</li>
-<li> Contact between two metallic plates: n=1</li>
-</ul>
-
-<p>
-The above force law leads to the following difficulties:
-</p>
-
-<ol>
-<li> If the damper force becomes larger as the spring force and with opposite sign,
-     the contact force would be \"pulling/sticking\" which is unphysical, since during
-     contact only pushing forces can occur.</li>
-
-<li> When contact occurs with a non-zero relative speed (which is the usual
-     situation), the damping force has a non-zero value and therefore the contact
-     force changes discontinuously at s_rel = s_rel0. Again, this is not physical
-     because the force can only change continuously. (Note, this component is not an
-     idealized model where a steep characteristic is approximated by a discontinuity,
-     but it shall model the steep characteristic.)</li>
-</ol>
-
-<p>
-In the literature there are several proposals to fix problem (2). Especially, often
-the following model is used (see, e.g.,
-Lankarani, Nikravesh: Continuous Contact Force Models for Impact
-Analysis in Multibody Systems, Nonlinear Dynamics 5, pp. 193-207, 1994,
-<a href=\"https://link.springer.com/article/10.1007/BF00045676\">pdf-download</a>):
-</p>
-
-<blockquote><pre>
-f = c*s_rel^n + (d*s_rel^n)*<strong>der</strong>(s_rel)
-</pre></blockquote>
-
-<p>
-However, this and other models proposed in literature violate
-issue (1), i.e., unphysical pulling forces can occur (if d*<strong>der</strong>(s_rel)
-becomes large enough). Note, if the force law is of the form \"f = f_c + f_d\", then a
-necessary condition is that |f_d| &le; |f_c|, otherwise (1) and (2) are violated.
-For this reason, the most simplest approach is used in the ElastoGap model
-to fix both problems by using this necessary condition in the force law directly.
-If s_rel0 = 0, the equations are:
-</p>
-
-<blockquote><pre>
-<strong>if</strong> s_rel &ge; 0 <strong>then</strong>
-   f = 0;    // contact force
-<strong>else</strong>
-   f_c  = -c*|s_rel|^n;          // contact spring force (Hertzian contact force)
-   f_d2 = d*<strong>der</strong>(s_rel);         // linear contact damper force
-   f_d  = <strong>if</strong> f_d2 &lt;  f_c <strong>then</strong>  f_c <strong>else</strong>
-          <strong>if</strong> f_d2 &gt; -f_c <strong>then</strong> -f_c <strong>else</strong> f_d2;  // bounded damper force
-   f    = f_c + f_d;            // contact force
-<strong>end if</strong>;
-</pre></blockquote>
-
-<p>
-Note, since |f_d| &le; |f_c|, pulling forces cannot occur and the contact force
-is always continuous, especially around the start of the penetration at s_rel = s_rel0.
-</p>
-
-<p>
-In the next figure, a typical simulation with the ElastoGap model is shown
-(<a href=\"modelica://Modelica.Mechanics.Translational.Examples.ElastoGap\">Examples.ElastoGap</a>)
-where the different effects are visualized:
-</p>
-
-<ol>
-<li> Curve 1 (elastoGap1.f) is the unmodified contact force, i.e., the linear spring/damper
-     characteristic. A pulling/sticking force is present at the end of the contact.</li>
-<li> Curve 2 (elastoGap2.f) is the contact force, where the force is explicitly set to
-     zero when pulling/sticking occurs. The contact force is discontinuous when contact starts.</li>
-<li> Curve 3 (elastoGap3.f) is the ElastoGap model of this library. No discontinuity and no
-     pulling/sticking occurs.</li>
-</ol>
-
-<p>
-<img src=\"modelica://Modelica/Resources/Images/Mechanics/Translational/Components/ElastoGap.png\" alt=\"Elasto gap\">
-</p>
-</html>"),
+    Documentation(info="<html><p>Contact occurs for s_rel&lt;s_rel0_effective. StiffnessLoss, DampingLoss and GapShift modify the contact parameters. ContactLoss reduces stiffness and damping towards zero; JammedContact raises stiffness towards 1e12. The damping force is limited by the compressive spring force.</p><p>Connect two flanges; set c, d, s_rel0 and exponent n, then inspect contact and f during the selected fault.</p><p>JammedContact retains the unilateral contact condition and does not bond separated surfaces. Initial force and position constraints must be consistent.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.ElastoGap</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{
             100,100}}),
       graphics={

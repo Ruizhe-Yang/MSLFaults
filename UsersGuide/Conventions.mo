@@ -1,5 +1,5 @@
 within MSLFaults.UsersGuide;
-class Conventions "Use the units and connection directions declared on each component."
+class Conventions "Fault selection, activation and diagnostics"
   extends Modelica.Icons.Information;
-  annotation(Documentation(info="<html><p>Use the units and connection directions declared on each component.</p></html>"));
+  annotation(Documentation(info="<html><p>Use the local FaultMode enumeration and the units declared by the selected component. Normal is the reference configuration. Activation usually requires enabled, a non-Normal mode and positive severity. The internal interval is half-open; an optional trigger replaces it.</p><p>active reports the requested or latched Boolean state, effectLevel reports the ramped severity and activationCount counts activation starts. Some discrete modes use a threshold; selected sensor saturation modes apply their limits independently of the envelope. Read the individual relation before using enabled=false or severity=0 as a nominal reference.</p><p>Keep nominal parameters, connector orientation, medium definitions and initial conditions consistent when comparing components. Mode names such as Drift, Stuck or Loss describe different laws in different classes.</p></html>"));
 end Conventions;

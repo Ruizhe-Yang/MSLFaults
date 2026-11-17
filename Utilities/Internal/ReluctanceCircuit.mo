@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model ReluctanceCircuit "Provide a magnetic potential difference and a magnetic reference"
+model ReluctanceCircuit "Magnetic circuit with a replaceable reluctance"
   Modelica.Magnetic.FluxTubes.Sources.ConstantMagneticPotentialDifference mmf(V_m=100) annotation(Placement(transformation(origin={-123,17},extent={{-16,-16},{16,16}},rotation=270)));
   Modelica.Magnetic.FluxTubes.Basic.Ground ground annotation(Placement(transformation(origin={-123,-70},extent={{-12,-12},{12,12}},rotation=0)));
   replaceable Modelica.Magnetic.FluxTubes.Basic.ConstantReluctance device annotation(Placement(transformation(origin={10,76},extent={{-15,-15},{15,15}},rotation=0))) constrainedby Modelica.Magnetic.FluxTubes.Basic.ConstantReluctance(R_m=1000);
@@ -21,5 +21,5 @@ equation
         Line(points={{49,-50},{61,-37}}, color={64,64,64}, thickness=0.75, pattern=LinePattern.Solid),
         Text(extent={{-50,-43},{10,-69}}, textString="Rm", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Provide a magnetic potential difference and a magnetic reference</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> flux</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.MagneticReluctance\">MSLFaults.Examples.MagneticReluctance</a></p></html>"));
+      }),Documentation(info="<html><p>Apply a constant magnetic potential difference of 100 A to a replaceable reluctance constrained to 1000 A/Wb. The magnetic reference closes the circuit and <code>flux</code> reports magnetic flux.</p><p>Redeclare device and compare flux with the nominal 0.1 Wb relation.</p></html>"));
 end ReluctanceCircuit;

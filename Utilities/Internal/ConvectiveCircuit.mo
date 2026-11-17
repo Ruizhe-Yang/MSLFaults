@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model ConvectiveCircuit "Heat a lumped capacity through the declared path to ambient"
+model ConvectiveCircuit "Heated capacity with a replaceable convective path"
   Modelica.Thermal.HeatTransfer.Sources.FixedHeatFlow heater(Q_flow=100) annotation(Placement(transformation(origin={-153,62},extent={{-15,-15},{15,15}},rotation=0)));
   replaceable Modelica.Thermal.HeatTransfer.Components.HeatCapacitor capacity annotation(Placement(transformation(origin={-42,-24},extent={{-17,-17},{17,17}},rotation=0))) constrainedby Modelica.Thermal.HeatTransfer.Components.HeatCapacitor(C=100,T(start=300,fixed=true));
   replaceable Modelica.Thermal.HeatTransfer.Components.Convection heatPath annotation(Placement(transformation(origin={14,62},extent={{-17,-17},{17,17}},rotation=0))) constrainedby Modelica.Thermal.HeatTransfer.Components.Convection;
@@ -31,5 +31,5 @@ equation
         Text(extent={{-13,-31},{38,-61}}, textString="Gc", textColor={64,64,64}, fontSize=0),
         Line(points={{13,75},{13,56}}, color={0,0,255}, thickness=0.6, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Heat a lumped capacity through the declared path to ambient</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> temperature</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p></html>"));
+      }),Documentation(info="<html><p>Supply 100 W to a 100 J/K thermal capacity, initially at 300 K, connected to a 300 K environment through a replaceable convection component. The prescribed <code>Gc</code> input is 10 W/K.</p><p>Redeclare heatPath and compare temperature under the same conductance input and thermal initial conditions.</p></html>"));
 end ConvectiveCircuit;

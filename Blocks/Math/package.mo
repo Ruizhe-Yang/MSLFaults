@@ -1,5 +1,5 @@
 within MSLFaults.Blocks;
-package Math "Math"
+package Math "Algebraic signal transformations"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -7,4 +7,5 @@ package Math "Math"
         Text(extent={{-29.75,-18.7},{21.25,21.25}}, textString="k", textColor={64,64,64}, fontSize=0),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Gain processing with configurable parameter, bias, fixed-output and capture effects.</p></html>"));
 end Math;

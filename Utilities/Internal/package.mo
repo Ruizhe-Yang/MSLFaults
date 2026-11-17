@@ -1,5 +1,5 @@
 within MSLFaults.Utilities;
-package Internal "Internal"
+package Internal "Internal activation and example assemblies"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -10,4 +10,5 @@ package Internal "Internal"
         Line(points={{46.75,-63.75},{64.6,-63.75},{64.6,-46.75}}, color={128,128,128}, thickness=0.7, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>The activation helper and complete circuits used to compare native, normal and faulted components. These assemblies support the examples; applications may connect the public components directly.</p></html>"));
 end Internal;

@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model ElectromagneticCircuit "Apply a voltage step to a magnetic reluctance through an electromagnetic converter"
+model ElectromagneticCircuit "Electrical excitation of a replaceable magnetic converter"
   Modelica.Electrical.Analog.Sources.StepVoltage source(V=12,startTime=0.1) annotation(Placement(transformation(origin={-235,6},extent={{-17,-17},{17,17}},rotation=270)));
   Modelica.Electrical.Analog.Basic.Resistor series(R=10) annotation(Placement(transformation(origin={-151,98},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Electrical.Analog.Basic.Ground electricalGround annotation(Placement(transformation(origin={-235,-81},extent={{-12,-12},{12,12}},rotation=0)));
@@ -31,5 +31,5 @@ equation
         Line(points={{49,-50},{61,-37}}, color={64,64,64}, thickness=0.75, pattern=LinePattern.Solid),
         Text(extent={{-61,-41},{13,-70}}, textString="I -> Phi", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Apply a voltage step to a magnetic reluctance through an electromagnetic converter</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> current; flux</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ElectromechanicalFaultEffects\">MSLFaults.Examples.ElectromechanicalFaultEffects</a></p></html>"));
+      }),Documentation(info="<html><p>A 12 V step and 10 Ω series resistor drive an electromagnetic converter connected to a reluctance of 1000 A/Wb. The converter constraint uses 100 turns and a fixed zero initial current. Separate electrical and magnetic references complete the networks.</p><p>Redeclare converter and inspect current and flux together.</p></html>"));
 end ElectromagneticCircuit;

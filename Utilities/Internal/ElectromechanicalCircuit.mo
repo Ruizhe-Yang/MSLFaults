@@ -1,6 +1,6 @@
 within MSLFaults.Utilities.Internal;
-model ElectromechanicalCircuit "Drive a motor and heated winding with speed feedback"
-  parameter Real resistance=2;
+model ElectromechanicalCircuit "Motor, winding heat and speed-feedback assembly"
+  parameter Real resistance=2 "Nominal winding resistance";
   Modelica.Blocks.Sources.RealExpression voltageCommand(y=12-feedback.y) annotation(Placement(transformation(origin={-272,57},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Electrical.Analog.Sources.SignalVoltage source annotation(Placement(transformation(origin={-173,44},extent={{-17,-17},{17,17}},rotation=270)));
   Modelica.Electrical.Analog.Basic.Ground electricalGround annotation(Placement(transformation(origin={-173,-28},extent={{-12,-12},{12,12}},rotation=0)));
@@ -47,5 +47,5 @@ equation
         Line(points={{-22,-59},{22,-59}}, color={191,0,0}, thickness=0.65, pattern=LinePattern.Solid),
         Line(points={{-16,-69},{16,-69}}, color={191,0,0}, thickness=0.65, pattern=LinePattern.Solid),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Drive a motor and heated winding with speed feedback</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> current; speed; temperature</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ElectromechanicalFaultEffects\">MSLFaults.Examples.ElectromechanicalFaultEffects</a></p></html>"));
+      }),Documentation(info="<html><p>A voltage command <code>12-feedback.y</code> drives a winding resistance and rotational electromechanical converter. The rotor drives a viscous damper; the winding heat port connects to a thermal capacity and an ambient cooling path. Winding resistance and feedback gain are replaceable.</p><p>Redeclare winding or feedback; compare current, speed and temperature under the same command.</p></html>"));
 end ElectromechanicalCircuit;

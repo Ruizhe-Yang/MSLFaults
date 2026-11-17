@@ -1,5 +1,5 @@
 within MSLFaults.Electrical.Analog.Sensors;
-model FaultableMultiSensor "Sensor to measure current, voltage and power"
+model FaultableMultiSensor "Current, voltage and power sensor with shared fault selection"
   extends Modelica.Icons.RoundSensor;
   Modelica.Electrical.Analog.Interfaces.PositivePin pc
       "Positive pin, current path"
@@ -29,43 +29,43 @@ model FaultableMultiSensor "Sensor to measure current, voltage and power"
           origin={-110,-60},
           extent={{-10,10},{10,-10}},
           rotation=180)));
-  type FaultMode = enumeration(Normal "正常", Bias "偏置", GainError "增益误差", NoiseIncrease "噪声增加", Stuck "输出卡死", Dropout "输出丢失", Saturation "输出饱和");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Real biasCurrent=0.1;
-  parameter Real biasVoltage=0.1;
-  parameter Real biasPower=0.1;
-  parameter Real gainFault=0.8;
-  parameter Real noiseAmplitude=0.01;
-  parameter Modelica.Units.SI.Frequency noiseFrequency=37;
-  parameter Real stuckCurrent=0;
-  parameter Real stuckVoltage=0;
-  parameter Real stuckPower=0;
-  parameter Real saturationLimit(min=Modelica.Constants.small)=1e6;
-  Real i_actual;
-  Real v_actual;
-  Real power_actual;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
+  type FaultMode = enumeration(Normal "Nominal behaviour", Bias "Additive measurement offset", GainError "Measurement scale error", NoiseIncrease "Deterministic measurement interference", Stuck "Prescribed or captured measurement target", Dropout "Attenuate the measurement towards zero", Saturation "Symmetric measurement clipping");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter Real biasCurrent=0.1 "Current offset at full effect, in amperes";
+  parameter Real biasVoltage=0.1 "Voltage offset at full effect, in volts";
+  parameter Real biasPower=0.1 "Power offset at full effect, in watts";
+  parameter Real gainFault=0.8 "Gain at full fault effect";
+  parameter Real noiseAmplitude=0.01 "Amplitude of deterministic measurement interference";
+  parameter Modelica.Units.SI.Frequency noiseFrequency=37 "Base frequency of deterministic interference";
+  parameter Real stuckCurrent=0 "Prescribed current output at full effect, in amperes";
+  parameter Real stuckVoltage=0 "Prescribed voltage output at full effect, in volts";
+  parameter Real stuckPower=0 "Prescribed power output at full effect, in watts";
+  parameter Real saturationLimit(min=Modelica.Constants.small)=1e6 "Symmetric clipping magnitude in the measurement unit";
+  Real i_actual "True current before measurement faults";
+  Real v_actual "True voltage before measurement faults";
+  Real power_actual "True instantaneous power before measurement faults";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -121,13 +121,5 @@ equation
         Ellipse(extent={{-70,70},{70,-70}}, lineColor={255,0,0}, lineThickness=0.75),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> Sensor to measure current, voltage and power</p><p><b>Interfaces</b> Modelica.Electrical.Analog.Interfaces.PositivePin pc; Modelica.Electrical.Analog.Interfaces.NegativePin nc; Modelica.Electrical.Analog.Interfaces.PositivePin pv; Modelica.Electrical.Analog.Interfaces.NegativePin nv; Modelica.Blocks.Interfaces.RealOutput i(final quantity=\"ElectricCurrent\", final unit=\"A\"); Modelica.Blocks.Interfaces.RealOutput v(final quantity=\"ElectricPotential\", final unit=\"V\"); Modelica.Blocks.Interfaces.RealOutput power(final quantity=\"Power\", final unit=\"W\"); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real biasCurrent=0.1; parameter Real biasVoltage=0.1; parameter Real biasPower=0.1; parameter Real gainFault=0.8; parameter Real noiseAmplitude=0.01; parameter Modelica.Units.SI.Frequency noiseFrequency=37; parameter Real stuckCurrent=0</p><p><b>Behavior</b> Sensor to measure current, voltage and power</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p><b>Purpose</b> Fault-enhanced MultiSensor</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Sensors.MultiSensor</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p>用法：将 FaultableMultiSensor 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>This multi sensor measures current, voltage and instantaneous electrical power of a single-phase system and has a separated voltage and current path.
-The pins of the voltage path are pv and nv, the pins of the current path are pc and nc.
-The internal resistance of the current path is zero, the internal resistance of the voltage path is infinite.</p>
-</html>", revisions="<html>
-<ul>
-<li><em>20170306</em> first implementation by Anton Haumer</li>
-</ul>
-</html>"));
+    Documentation(info="<html><p>Measure current through pc/nc and voltage across pv/nv without changing their ideal sensor relations. Apply the same selected fault mode independently to i, v and power, using channel-specific bias and stuck values. NoiseIncrease is deterministic sinusoidal interference.</p><p>Connect both measurement paths; configure biasCurrent/biasVoltage/biasPower or the corresponding stuck targets and inspect all three outputs.</p><p>The faulted power output need not equal the product of the faulted current and voltage. noiseAmplitude and saturationLimit are shared numerical values interpreted in each channel unit.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Sensors.MultiSensor</code>.</p></html>"));
 end FaultableMultiSensor;

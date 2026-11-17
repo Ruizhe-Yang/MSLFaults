@@ -1,5 +1,5 @@
 within MSLFaults.Blocks;
-package Continuous "Continuous"
+package Continuous "Continuous signal dynamics"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -7,4 +7,5 @@ package Continuous "Continuous"
         Line(points={{-47.6,-27.2},{-28.9,-27.2},{-9.35,11.9},{14.45,31.45},{50.15,35.7}}, color={255,0,0}, thickness=0.9, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>First-order dynamics with separate state and output fault mechanisms.</p></html>"));
 end Continuous;

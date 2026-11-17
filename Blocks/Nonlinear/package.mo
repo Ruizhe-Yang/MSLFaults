@@ -1,5 +1,5 @@
 within MSLFaults.Blocks;
-package Nonlinear "Nonlinear"
+package Nonlinear "Delays and signal limits"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,4 +8,5 @@ package Nonlinear "Nonlinear"
         Line(points={{0,-48.45},{0,48.45}}, color={128,128,128}, thickness=0.4, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Causal delay and limiting blocks with configurable targets and recovery.</p></html>"));
 end Nonlinear;

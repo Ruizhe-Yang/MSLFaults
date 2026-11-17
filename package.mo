@@ -1,5 +1,5 @@
 within;
-package MSLFaults "Bounded fault effects inside components with a named Modelica 4.0.0 counterpart."
+package MSLFaults "Component fault models for Modelica Standard Library interfaces"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -10,5 +10,5 @@ package MSLFaults "Bounded fault effects inside components with a named Modelica
         Line(points={{-40.8,-33.15},{-16.15,-33.15},{-7.65,-11.9},{0.85,-33.15},{40.8,-33.15}}, color={255,0,0}, thickness=0.8, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    uses(Modelica(version="4.0.0")), version="0.6.0", Documentation(info="<html><p>Bounded fault effects inside components with a named Modelica 4.0.0 counterpart.</p></html>"));
+    uses(Modelica(version="4.0.0")), version="1.0.0", Documentation(info="<html><p>MSLFaults provides deterministic fault mechanisms for signal-processing and physical components associated with Modelica Standard Library 4.0.0 counterparts. Configure the local fault mode and target, then inspect the component response and activation diagnostics.</p><p>Begin with <a href=\"modelica://MSLFaults.UsersGuide\">UsersGuide</a> and <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">Examples.ResistorReplacement</a>. The library covers electrical, mechanical, thermal, fluid and magnetic networks as well as causal signal blocks.</p></html>"));
 end MSLFaults;

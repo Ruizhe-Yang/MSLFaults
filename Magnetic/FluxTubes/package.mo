@@ -1,5 +1,5 @@
 within MSLFaults.Magnetic;
-package FluxTubes "FluxTubes"
+package FluxTubes "Magnetic flux-tube fault models"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package FluxTubes "FluxTubes"
         Line(points={{4.25,50.15},{31.45,50.15}}, color={255,127,0}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Lumped magnetic paths, electromagnetic conversion through electrical windings, and magnetic measurements. The individual models state their finite targets and power relations.</p></html>"));
 end FluxTubes;

@@ -1,8 +1,8 @@
 within MSLFaults.Examples;
-model ResistorReplacement "Compare two native-constrained electrical replacements through a reversible fault"
+model ResistorReplacement "Compare reversible resistor and conductor faults"
   extends Modelica.Icons.Example;
-  parameter MSLFaults.Electrical.Analog.Basic.FaultableResistor.FaultMode resistorMode=MSLFaults.Electrical.Analog.Basic.FaultableResistor.FaultMode.ResistanceStep;
-  parameter MSLFaults.Electrical.Analog.Basic.FaultableConductor.FaultMode conductorMode=MSLFaults.Electrical.Analog.Basic.FaultableConductor.FaultMode.ConductanceStep;
+  parameter MSLFaults.Electrical.Analog.Basic.FaultableResistor.FaultMode resistorMode=MSLFaults.Electrical.Analog.Basic.FaultableResistor.FaultMode.ResistanceStep "Fault mode used in the resistor comparison";
+  parameter MSLFaults.Electrical.Analog.Basic.FaultableConductor.FaultMode conductorMode=MSLFaults.Electrical.Analog.Basic.FaultableConductor.FaultMode.ConductanceStep "Fault mode used in the conductor comparison";
   MSLFaults.Utilities.Internal.ResistorCircuit resistorNative annotation(Placement(transformation(origin={-234,116},extent={{-25,-25},{25,25}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput resistorNativeCurrent annotation(Placement(transformation(origin={-168,69},extent={{-7,-7},{7,7}},rotation=0)));
   MSLFaults.Utilities.Internal.ResistorCircuit resistorNormal(redeclare MSLFaults.Electrical.Analog.Basic.FaultableResistor device) annotation(Placement(transformation(origin={-48,116},extent={{-25,-25},{25,25}},rotation=0)));
@@ -24,5 +24,5 @@ equation
   connect(conductorFault.readout,conductorFaultCurrent) annotation(Line(points={{163,-85},{204,-85},{204,-132}},color={0,0,127}));
   annotation(experiment(StartTime=0,StopTime=5,Interval=0.01,Tolerance=1e-6),
     Diagram(coordinateSystem(extent={{-360,-240},{360,240}},preserveAspectRatio=true),graphics={Text(extent={{-220,198},{220,184}},textString="Resistor comparison at constant 12 V",textColor={34,61,73}),Text(extent={{-220,-2},{220,-16}},textString="Conductor comparison at constant 12 V",textColor={34,61,73})}),
-    Documentation(info="<html><p><b>Purpose</b> Compare two native-constrained electrical replacements through a reversible fault</p><p><b>Interfaces</b> Instances and connections are shown in the Diagram layer.</p><p><b>Parameters</b> Default values are shown in the component modifiers.</p><p><b>Behavior</b> Native and Normal current is 1.2 A. Fault branches fall to 0.6 A by 1.05 s and recover after 3.05 s.</p><p><b>Initialization</b> All initial conditions are explicit in the source and component modifiers.</p><p><b>Activation and recovery</b> The given time windows follow the simulation time axis.</p><p><b>Limitations</b> This demonstration uses the declared inputs, initial conditions and idealized components.</p><p><b>Observables</b> Six currents and the fault branches’ active, effectLevel, and actual resistance or conductance.</p></html>"));
+    Documentation(info="<html><p>Compare independent native, normal and faulted circuits at 12 V. The resistor changes from 10 Ω towards 20 Ω; the conductor changes from 0.1 S towards 0.05 S. Default activation uses the interval [1,3) s with a 0.05 s transition. Both faulted currents therefore move from 1.2 A towards 0.6 A and recover.</p><p>Plot the six current outputs and resistorFault.device.effectLevel; change one selected mode at a time. Use the stored experiment settings.</p></html>"));
 end ResistorReplacement;

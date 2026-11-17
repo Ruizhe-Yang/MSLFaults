@@ -1,5 +1,5 @@
 within MSLFaults.Examples;
-model RotationalDamping "Compare rotational damping, inertia and spring fault mechanisms"
+model RotationalDamping "Compare damping, inertia and rotational stiffness changes"
   extends Modelica.Icons.Example;
   MSLFaults.Utilities.Internal.RotationalDrive native annotation(Placement(transformation(origin={-265,111},extent={{-23,-23},{23,23}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput nativeSpeed annotation(Placement(transformation(origin={-219,64},extent={{-7,-7},{7,7}},rotation=0)));
@@ -25,5 +25,5 @@ equation
   connect(faultSpring.torque,faultSpringTorque) annotation(Line(points={{135,-86},{174,-86},{174,-142}},color={0,0,127}));
   annotation(experiment(StartTime=0,StopTime=5,Interval=0.01,Tolerance=1e-6),
     Diagram(coordinateSystem(extent={{-360,-240},{360,240}},preserveAspectRatio=true),graphics={Text(extent={{-274,212},{278,198}},textString="Inertia and damper with the same native initial speed",textColor={34,61,73}),Text(extent={{-222,1},{162,-13}},textString="Independent prescribed spring deflection",textColor={34,61,73})}),
-    Documentation(info="<html><p><b>Purpose</b> Compare rotational damping, inertia and spring fault mechanisms</p><p><b>Interfaces</b> Instances and connections are shown in the Diagram layer.</p><p><b>Parameters</b> Default values are shown in the component modifiers.</p><p><b>Behavior</b> Speed is tau/d times (1-exp(-d*t/J)). The spring torque magnitude halves with the same prescribed angle.</p><p><b>Initialization</b> All initial conditions are explicit in the source and component modifiers.</p><p><b>Activation and recovery</b> The given time windows follow the simulation time axis.</p><p><b>Limitations</b> This demonstration uses the declared inputs, initial conditions and idealized components.</p><p><b>Observables</b> Speeds, damper.lossPower, faulted spring torque, spring.storedEnergy and parameterPower.</p></html>"));
+    Documentation(info="<html><p>Compare torque-driven rotors with increased damping or reduced inertia, then compare separate prescribed-deflection spring paths. Increased damping changes the steady speed; reduced inertia changes the transient with the nominal damping retained.</p><p>Plot the four speed outputs and three spring-torque outputs; inspect each independent path separately. Use the stored experiment settings.</p></html>"));
 end RotationalDamping;

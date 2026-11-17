@@ -1,8 +1,8 @@
 within MSLFaults.Examples;
-model ElectromechanicalFaultEffects "Compare circuit, motion and heat while separately exercising magnetic conversion"
+model ElectromechanicalFaultEffects "Compare winding, feedback and magnetic-conversion faults"
   extends Modelica.Icons.Example;
-  parameter Integer configuration(min=0,max=3)=1 "0 Normal, 1 resistance, 2 feedback gain, 3 combined";
-  parameter Boolean dynamicTurns=false "Ramp the converter turns after initialization";
+  parameter Integer configuration(min=0,max=3)=1 "Motor case: 0 normal, 1 resistance, 2 feedback gain, 3 combined";
+  parameter Boolean dynamicTurns=false "Start the converter turn change during the run when true";
   MSLFaults.Utilities.Internal.ElectromechanicalCircuit motorNative annotation(Placement(transformation(origin={-223,126},extent={{-27,-27},{27,27}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput motorNativeCurrent annotation(Placement(transformation(origin={-118,160},extent={{-7,-7},{7,7}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput motorNativeSpeed annotation(Placement(transformation(origin={-118,119},extent={{-7,-7},{7,7}},rotation=0)));
@@ -37,5 +37,5 @@ equation
   connect(fluxFault.flux,fluxFaultFlux) annotation(Line(points={{136,-92},{163.5,-92},{163.5,-166},{185,-166}},color={0,0,127}));
   annotation(experiment(StartTime=0,StopTime=8,Interval=0.01,Tolerance=1e-6),
     Diagram(coordinateSystem(extent={{-360,-240},{360,240}},preserveAspectRatio=true),graphics={Text(extent={{-301,216},{301,202}},textString="Motor, mechanical load, winding heat and measured feedback",textColor={34,61,73}),Text(extent={{-296,11},{296,-3}},textString="Separate electrical and magnetic conversion experiment",textColor={34,61,73})}),
-    Documentation(info="<html><p><b>Purpose</b> Compare circuit, motion and heat while separately exercising magnetic conversion</p><p><b>Interfaces</b> Instances and connections are shown in the Diagram layer.</p><p><b>Parameters</b> Default values are shown in the component modifiers.</p><p><b>Behavior</b> The native motor supplies the comparison trajectory. The default motor experiment applies only the resistance fault. The independent converter exercises effective turns.</p><p><b>Initialization</b> All initial conditions are explicit in the source and component modifiers.</p><p><b>Activation and recovery</b> The given time windows follow the simulation time axis.</p><p><b>Limitations</b> This demonstration uses the declared inputs, initial conditions and idealized components.</p><p><b>Observables</b> Motor winding current, rotor speed and heat capacity temperature. Separate converter flux, current and parameterPower.</p></html>"));
+    Documentation(info="<html><p>The motor paths compare winding resistance and feedback-gain faults using configuration values 0 through 3. Separate magnetic paths compare native, normal and reduced-turn converters. dynamicTurns starts the turn change after initialisation.</p><p>Compare motor current, speed and temperature; inspect converter current and flux as a separate experiment. Use the stored experiment settings.</p></html>"));
 end ElectromechanicalFaultEffects;

@@ -1,5 +1,5 @@
 within MSLFaults.Electrical;
-package Analog "Analog"
+package Analog "Analogue electrical components and measurements"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Analog "Analog"
         Line(points={{46.75,0},{67.15,0}}, color={0,0,255}, thickness=0.65, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Analogue circuit models organised into Basic, Ideal, Semiconductors, Sources and Sensors. Physical pin conventions follow the stated Modelica Standard Library counterparts.</p></html>"));
 end Analog;

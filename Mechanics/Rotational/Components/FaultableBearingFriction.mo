@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational.Components;
-model FaultableBearingFriction "Coulomb friction in bearings"
+model FaultableBearingFriction "Bearing friction with configurable loss, wear and seizure effects"
   extends
     Modelica.Mechanics.Rotational.Interfaces.PartialElementaryTwoFlangesAndSupport2;
 
@@ -15,36 +15,36 @@ model FaultableBearingFriction "Coulomb friction in bearings"
   Modelica.Units.SI.Angle phi
     "Angle between shaft flanges (flange_a, flange_b) and support";
   Modelica.Units.SI.Torque tau "Friction torque";
-  Modelica.Units.SI.AngularVelocity w "Absolute angular velocity of flange_a and flange_b";
+  Modelica.Units.SI.AngularVelocity w "Angular velocity relative to the support";
   Modelica.Units.SI.AngularAcceleration a
-    "Absolute angular acceleration of flange_a and flange_b";
+    "Angular acceleration relative to the support";
 
-  type FaultMode=enumeration(Normal "正常", FrictionLoss "轴承摩擦下降", FrictionIncrease "轴承摩擦增加", Wear "轴承磨损", Seizure "轴承抱死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real frictionLossScale(min=0,max=1)=0.5;
-  parameter Real frictionIncreaseScale(min=1)=2;
-  parameter Real wearScale(min=1)=3;
-  parameter Modelica.Units.SI.Time wearTime(min=Modelica.Constants.small)=10;
-  parameter Real seizureScale(min=1)=1000;
-  Real frictionScale;
-  Real wearProgress(min=0,max=1);
+  type FaultMode=enumeration(Normal "Nominal component relation", FrictionLoss "Reduced friction", FrictionIncrease "Increased friction", Wear "Configured wear-related friction change", Seizure "Increased finite mechanical resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Real frictionLossScale(min=0,max=1)=0.5 "Friction multiplier at full loss effect";
+  parameter Real frictionIncreaseScale(min=1)=2 "Friction multiplier at full increase effect";
+  parameter Real wearScale(min=1)=3 "Friction multiplier at completed wear progression";
+  parameter Modelica.Units.SI.Time wearTime(min=Modelica.Constants.small)=10 "Duration to reach full configured wear progression";
+  parameter Real seizureScale(min=1)=1000 "Finite friction multiplier at full seizure effect";
+  Real frictionScale "Effective friction multiplier";
+  Real wearProgress(min=0,max=1) "Bounded wear progression on the configured absolute time window";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -96,89 +96,7 @@ equation
   lossPower = tau*w_relfric;
 
 
-  annotation (Documentation(info="<html><p><b>Purpose</b> Coulomb friction in bearings</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Real tau_pos[:, 2]=[0, 1]; parameter Real peak(final min=1) = 1; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real frictionLossScale(min=0,max=1)=0.5; parameter Real frictionIncreaseScale(min=1)=2; parameter Real wearScale(min=1)=3; parameter Modelica.Units.SI.Time wearTime(min=Modelica.Constants.small)=10; parameter Real seizureScale(min=1)=1000</p><p><b>Behavior</b> Coulomb friction in bearings</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced BearingFriction</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.BearingFriction</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableBearingFriction 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This element describes <strong>Coulomb friction</strong> in <strong>bearings</strong>,
-i.e., a frictional torque acting between a flange and the housing.
-The positive sliding friction torque \"tau\" has to be defined
-by table \"tau_pos\" as function of the absolute angular velocity \"w\".
-E.g.
-</p>
-<blockquote><pre>
- w | tau
----+-----
- 0 |   0
- 1 |   2
- 2 |   5
- 3 |   8
-</pre></blockquote>
-<p>
-gives the following table:
-</p>
-<blockquote><pre>
-tau_pos = [0, 0; 1, 2; 2, 5; 3, 8];
-</pre></blockquote>
-<p>
-Currently, only linear interpolation in the table is supported.
-Outside of the table, extrapolation through the last
-two table entries is used. It is assumed that the negative
-sliding friction force has the same characteristic with negative
-values. Friction is modelled in the following way:
-</p>
-<p>
-When the absolute angular velocity \"w\" is not zero, the friction torque
-is a function of w and of a constant normal force. This dependency
-is defined via table tau_pos and can be determined by measurements,
-e.g., by driving the gear with constant velocity and measuring the
-needed motor torque (= friction torque).
-</p>
-<p>
-When the absolute angular velocity becomes zero, the elements
-connected by the friction element become stuck, i.e., the absolute
-angle remains constant. In this phase the friction torque is
-calculated from a torque balance due to the requirement, that
-the absolute acceleration shall be zero.  The elements begin
-to slide when the friction torque exceeds a threshold value,
-called the maximum static friction torque, computed via:
-</p>
-<blockquote><pre>
-maximum_static_friction = <strong>peak</strong> * sliding_friction(w=0)  (<strong>peak</strong> >= 1)
-</pre></blockquote>
-<p>
-This procedure is implemented in a \"clean\" way by state events and
-leads to continuous/discrete systems of equations if friction elements
-are dynamically coupled which have to be solved by appropriate
-numerical methods. The method is described in
-(see also a short sketch in <a href=\"modelica://Modelica.Mechanics.Rotational.UsersGuide.ModelingOfFriction\">UsersGuide.ModelingOfFriction</a>):
-</p>
-<dl>
-<dt>Otter M., Elmqvist H., and Mattsson S.E. (1999):</dt>
-<dd><strong>Hybrid Modeling in Modelica based on the Synchronous
-    Data Flow Principle</strong>. CACSD'99, Aug. 22.-26, Hawaii.</dd>
-</dl>
-<p>
-More precise friction models take into account the elasticity of the
-material when the two elements are \"stuck\", as well as other effects,
-like hysteresis. This has the advantage that the friction element can
-be completely described by a differential equation without events. The
-drawback is that the system becomes stiff (about 10-20 times slower
-simulation) and that more material constants have to be supplied which
-requires more sophisticated identification. For more details, see the
-following references, especially (Armstrong and Canudas de Wit 1996):
-</p>
-<dl>
-<dt>Armstrong B. (1991):</dt>
-<dd><strong>Control of Machines with Friction</strong>. Kluwer Academic
-    Press, Boston MA.<br></dd>
-<dt>Armstrong B., and Canudas de Wit C. (1996):</dt>
-<dd><strong>Friction Modeling and Compensation.</strong>
-    The Control Handbook, edited by W.S.Levine, CRC Press,
-    pp. 1369-1382.<br></dd>
-<dt>Canudas de Wit C., Olsson H., &Aring;str&ouml;m K.J., and Lischinsky P. (1995):</dt>
-<dd><strong>A new model for control of systems with friction.</strong>
-    IEEE Transactions on Automatic Control, Vol. 40, No. 3, pp. 419-425.</dd>
-</dl>
-</html>"),
+  annotation (Documentation(info="<html><p>Scale the Coulomb friction characteristic and its static threshold. FrictionLoss, FrictionIncrease and Seizure use the activation envelope. Wear uses a bounded progression from faultStartTime to faultEndTime with time scale wearTime.</p><p>Connect the shaft flanges and optional support; set tau_pos and the selected friction scale, then inspect tau and lossPower.</p><p>Wear follows the configured absolute times even with an external trigger. Its scale is retained while active or while effectLevel is positive, then returns to nominal; it is not a permanent wear state.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.BearingFriction</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true,
       extent={{-100.0,-100.0},{100.0,100.0}}),
       graphics={

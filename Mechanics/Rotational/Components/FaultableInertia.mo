@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational.Components;
-model FaultableInertia "1D-rotational component with inertia"
+model FaultableInertia "Rotational inertia with momentum-based parameter variation"
   extends Modelica.Mechanics.Rotational.Interfaces.PartialTwoFlanges;
   parameter Modelica.Units.SI.Inertia J(min=0, start=1) "Moment of inertia";
   parameter StateSelect stateSelect=StateSelect.default
@@ -15,32 +15,32 @@ model FaultableInertia "1D-rotational component with inertia"
     "Absolute angular acceleration of component (= der(w))"
     annotation (Dialog(group="Initialization", showStartAttribute=true));
 
-  type FaultMode=enumeration(Normal "正常", InertiaDrift "转动惯量漂移", InertiaLoss "惯量下降", RotorLock "转子卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Inertia JFault=0.5*J;
-  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9;
-  Modelica.Units.SI.Inertia J_effective;
-  Modelica.Units.SI.Torque lockTorque;
+  type FaultMode=enumeration(Normal "Nominal component relation", InertiaDrift "Changed moment of inertia", InertiaLoss "Reduced moment of inertia", RotorLock "Finite viscous shaft resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.Inertia JFault=0.5*J "Moment of inertia at full parameter-change effect";
+  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9 "Finite viscous coefficient used by the locking approximation";
+  Modelica.Units.SI.Inertia J_effective "Effective moment of inertia";
+  Modelica.Units.SI.Torque lockTorque "Viscous torque opposing the shaft motion";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
-  Modelica.Units.SI.AngularMomentum momentum;
-  Modelica.Units.SI.Energy storedEnergy;
-  Modelica.Units.SI.Power lossPower,parameterPower,portPower;
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
+  Modelica.Units.SI.AngularMomentum momentum "Momentum associated with the effective inertial parameter";
+  Modelica.Units.SI.Energy storedEnergy "Stored mechanical energy from the effective parameters";
+  Modelica.Units.SI.Power lossPower "Power dissipated by the finite locking resistance",parameterPower "Energy-rate contribution associated with prescribed parameter changes",portPower "Mechanical power entering through the flanges";
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
@@ -72,11 +72,7 @@ equation
   lossPower=lockTorque*w;
   portPower=(flange_a.tau+flange_b.tau)*w;
   parameterPower=der(storedEnergy)-portPower+lossPower;
-  annotation (Documentation(info="<html><p><b>Purpose</b> 1D-rotational component with inertia</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.Inertia J(min=0, start=1) \"Moment of inertia\"; parameter StateSelect stateSelect=StateSelect.default; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Inertia JFault=0.5*J; parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> 1D-rotational component with inertia</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced Inertia</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The variable inertial parameter is a behavioral approximation. Momentum is conserved in the absence of external force or torque. Locking adds finite dissipative resistance.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.Inertia</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableInertia 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-Rotational component with <strong>inertia</strong> and two rigidly connected flanges.
-</p>
-</html>"),
+  annotation (Documentation(info="<html><p>InertiaDrift and InertiaLoss use the same interpolation from J to JFault. The balance differentiates momentum=J_effective*w. RotorLock adds finite viscous torque. parameterPower=der(storedEnergy)-portPower+lossPower accounts for prescribed parameter variation.</p><p>Set J and the initial shaft state; choose JFault or lockDamping and inspect momentum, storedEnergy, lossPower and parameterPower.</p><p>Varying inertia requires positive endpoint values. Drift follows the activation envelope without a separate ageing clock.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.Inertia</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true,
     extent={{-100.0,-100.0},{100.0,100.0}}),
       graphics={

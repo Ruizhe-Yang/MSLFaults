@@ -1,44 +1,44 @@
 within MSLFaults.Electrical.Analog.Basic;
-model FaultableTransformer "Transformer with two ports"
+model FaultableTransformer "Coupled-inductor transformer with winding faults"
   import SI = Modelica.Units.SI;
   extends Modelica.Electrical.Analog.Interfaces.TwoPort(i1(start=0),i2(start=0));
   parameter SI.Inductance L1(start=1) "Primary inductance";
   parameter SI.Inductance L2(start=1) "Secondary inductance";
   parameter SI.Inductance M(start=1) "Coupling inductance";
   Real dv "Difference between voltage drop over primary inductor and voltage drop over secondary inductor";
-  type FaultMode = enumeration(Normal "正常", PrimaryInductanceDrift "原边电感漂移", SecondaryInductanceDrift "副边电感漂移", CouplingLoss "耦合损失", PrimaryOpen "原边开路", SecondaryOpen "副边开路");
-  parameter FaultMode faultMode=FaultMode.Normal "故障模式";
-  parameter Real severity(min=0,max=1)=1 "故障严重度";
-  parameter SI.Time faultStartTime=1 "故障开始时刻";
-  parameter SI.Time faultEndTime=3 "故障结束时刻";
-  parameter SI.Time transitionTime(min=0)=0.05 "故障渐变时间";
-  Real faultActivation(min=0,max=1) "含严重度的故障激活量";
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter SI.Inductance L1_fault=0.5*L1 "原边电感故障目标";
-  parameter SI.Inductance L2_fault=0.5*L2 "副边电感故障目标";
-  parameter SI.Inductance M_fault=0.1*M "耦合电感故障目标";
-  parameter SI.Resistance R_open=1e10 "绕组开路有限大电阻";
-  SI.Inductance L1_effective;
-  SI.Inductance L2_effective;
-  SI.Inductance M_effective;
-  SI.Resistance R1_series;
-  SI.Resistance R2_series;
+  type FaultMode = enumeration(Normal "Nominal behaviour", PrimaryInductanceDrift "Primary inductance change", SecondaryInductanceDrift "Secondary inductance change", CouplingLoss "Reduced coupling", PrimaryOpen "Finite primary winding resistance", SecondaryOpen "Finite secondary winding resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter SI.Inductance L1_fault=0.5*L1 "Primary inductance at full effect";
+  parameter SI.Inductance L2_fault=0.5*L2 "Secondary inductance at full effect";
+  parameter SI.Inductance M_fault=0.1*M "Mutual inductance at full effect";
+  parameter SI.Resistance R_open=1e10 "Finite resistance representing an open circuit";
+  SI.Inductance L1_effective "Effective primary inductance";
+  SI.Inductance L2_effective "Effective secondary inductance";
+  SI.Inductance M_effective "Effective mutual inductance";
+  SI.Resistance R1_series "Additional primary series resistance";
+  SI.Resistance R2_series "Additional secondary series resistance";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -61,22 +61,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Transformer with two ports</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.TwoPort(i1(start=0),i2(start=0)); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter SI.Inductance L1(start=1) \"Primary inductance\"; parameter SI.Inductance L2(start=1) \"Secondary inductance\"; parameter SI.Inductance M(start=1) \"Coupling inductance\"; parameter FaultMode faultMode=FaultMode.Normal \"故障模式\"; parameter Real severity(min=0,max=1)=1 \"故障严重度\"; parameter SI.Time faultStartTime=1 \"故障开始时刻\"; parameter SI.Time faultEndTime=3 \"故障结束时刻\"; parameter SI.Time transitionTime(min=0)=0.05 \"故障渐变时间\"; parameter SI.Inductance L1_fault=0.5*L1 \"原边电感故障目标\"; parameter SI.Inductance L2_fault=0.5*L2 \"副边电感故障目标\"; parameter SI.Inductance M_fault=0.1*M \"耦合电感故障目标\"; parameter SI.Resistance R_open=1e10 \"绕组开路有限大电阻\"</p><p><b>Behavior</b> Transformer with two ports</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced Transformer</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Basic.Transformer</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableTransformer 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>The transformer is a two port. The left port voltage <em>v1</em>, left port current <em>i1</em>, right port voltage <em>v2</em> and right port current <em>i2</em> are connected by the following relation:</p>
-<blockquote><pre>
-| v1 |         | L1   M  |  | i1&#39; |
-|    |    =    |         |  |     |
-| v2 |         | M    L2 |  | i2&#39; |
-</pre></blockquote>
-<p><em>L1</em>, <em>L2</em>, and <em>M</em> are the primary, secondary, and coupling inductances respectively.</p>
-</html>",
-        revisions="<html>
-<ul>
-<li><em> 1998   </em>
-       by Christoph Clauss<br> initially implemented<br>
-       </li>
-</ul>
-</html>"),
+    Documentation(info="<html><p>Modify primary inductance, secondary inductance or mutual inductance in the coupled current-derivative equations. PrimaryOpen and SecondaryOpen add finite series resistance to the corresponding winding.</p><p>Set L1, L2 and M consistently, then configure the selected inductance target or R_open. Inspect winding currents and effective parameters.</p><p>The equations multiply current derivatives by the varying inductances; they do not differentiate a time-varying flux-linkage matrix.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Basic.Transformer</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational;
-package Components "Components"
+package Components "Rotational components with configurable fault effects"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -15,4 +15,5 @@ package Components "Components"
         Line(points={{30.6531,-30.6531},{40.8708,-40.8708}}, color={64,64,64}, thickness=3, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Inertia, compliance, friction and transmission models. Each class states its parameter changes, any permanent latch and the limits of finite locking approximations.</p></html>"));
 end Components;

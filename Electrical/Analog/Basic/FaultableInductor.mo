@@ -1,58 +1,58 @@
 within MSLFaults.Electrical.Analog.Basic;
 model FaultableInductor
-  "Fault-enhanced MSL 4.0.0 inductor with winding and turn-short effects"
+  "Inductor with inductance, winding-loss and turn-short faults"
   import SI = Modelica.Units.SI;
   extends Modelica.Electrical.Analog.Interfaces.OnePort(i(start=0));
   parameter SI.Inductance L(start=1) "Inductance";
 
   type FaultMode = enumeration(
-    Normal "Nominal MSL behavior",
+    Normal "Nominal behaviour",
     InductanceDrift "Progressive inductance drift",
-    InductanceLoss "Abrupt or ramped inductance loss",
+    InductanceLoss "Interpolate towards the inductance-loss target",
     WindingResistanceIncrease "Series winding resistance increase",
     TurnShort "Reduced effective turns plus additional winding loss",
-    OpenCircuit "Finite high-resistance winding open circuit");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter SI.Inductance L_drift=1.2*L "Inductance at completed drift";
-  parameter SI.Inductance L_loss=0.5*L "Inductance after discrete loss";
-  parameter SI.Resistance R_windingFault=10 "Added winding resistance target";
+    OpenCircuit "Finite open-circuit equivalent");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter SI.Inductance L_drift=1.2*L "Inductance at completed progressive drift";
+  parameter SI.Inductance L_loss=0.5*L "Inductance target for the loss mode";
+  parameter SI.Resistance R_windingFault=10 "Additional winding resistance at full effect";
   parameter Real maxTurnShortRatio(min=0,max=0.95)=0.3
-    "Shorted-turn fraction at severity one";
+    "Shorted-turn fraction at full effect";
   parameter SI.Resistance R_turnShortLoss=1
-    "Series-equivalent loss at maximum shorted-turn fraction";
-  parameter SI.Resistance R_open=1e10 "Finite open-circuit resistance";
+    "Additional series loss resistance at full TurnShort effect";
+  parameter SI.Resistance R_open=1e10 "Finite resistance representing an open circuit";
 
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  Real turnShortRatio(min=0,max=0.95);
-  SI.Inductance L_effective "Fault-adjusted inductance";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  Real turnShortRatio(min=0,max=0.95) "Effective shorted-turn fraction";
+  SI.Inductance L_effective "Effective inductance";
   SI.Resistance R_series "Fault-adjusted winding loss/open resistance";
 
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
   Modelica.Units.SI.MagneticFlux psi "Flux linkage";
-  Modelica.Units.SI.Energy storedEnergy;
-  Modelica.Units.SI.Power lossPower,parameterPower;
+  Modelica.Units.SI.Energy storedEnergy "Stored electrical or magnetic energy";
+  Modelica.Units.SI.Power lossPower "Electrical power dissipated in resistive branches",parameterPower "Power associated with prescribed storage-parameter variation";
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 initial equation
   assert(L>0 and L_loss>0 and L_drift>0 and driftTime>0,"Inductances and drift time must be positive.");
   assert(R_windingFault>=0 and R_turnShortLoss>=0 and R_open>0 and maxTurnShortRatio>=0 and maxTurnShortRatio<1,"Invalid winding-loss targets.");
@@ -92,17 +92,7 @@ equation
   lossPower=R_series*i*i;
   parameterPower=der(storedEnergy)-v*i+lossPower;
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> FaultableInductor</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort(i(start=0)); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter SI.Inductance L(start=1) \"Inductance\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter SI.Time faultStartTime=1; parameter SI.Time faultEndTime=3; parameter SI.Time transitionTime(min=0)=0.05; parameter SI.Time driftTime(min=Modelica.Constants.small)=1; parameter SI.Inductance L_drift=1.2*L \"Inductance at completed drift\"; parameter SI.Inductance L_loss=0.5*L \"Inductance after discrete loss\"; parameter SI.Resistance R_windingFault=10 \"Added winding resistance target\"; parameter Real maxTurnShortRatio(min=0,max=0.95)=0.3; parameter SI.Resistance R_turnShortLoss=1</p><p><b>Behavior</b> FaultableInductor</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.InductorDegradation\">MSLFaults.Examples.InductorDegradation</a></p><p><b>Purpose</b> Fault-enhanced Inductor</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Flux linkage is the storage coordinate. The original current retains its initialization attributes. Apply a finite ramp for an in-run parameter-power trace.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Basic.Inductor</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.InductorDegradation\">MSLFaults.Examples.InductorDegradation</a></p><p>用法：将 FaultableInductor 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>Normal mode and <code>severity=0</code> reproduce the MSL equation
-<code>v=L*der(i)</code>. Drift and discrete loss use distinct temporal laws.</p>
-<p><code>TurnShort</code> represents a calibrated shorted-turn fraction: inductance
-scales approximately with the square of effective turns and a finite
-series-equivalent loss represents fault-loop heating. This is a system-level
-lumped approximation, not a detailed coupled shorted-winding model.</p>
-<p><b>Evidence:</b> transformer/winding inter-turn-short studies model shorted-turn
-ratio, changed self/mutual inductances, fault resistance and circulating current
-(Energies 18 (2025) 5453, doi:10.3390/en18205453). Evidence level B.</p>
-</html>"),
+    Documentation(info="<html><p>Evolve flux linkage psi with psi=L_effective*i and v=der(psi)+R_series*i. InductanceDrift uses driftTime; InductanceLoss follows the activation envelope. TurnShort reduces inductance with the square of the remaining turn fraction and adds series loss. OpenCircuit adds a finite high resistance.</p><p>Set L and the selected target; for TurnShort configure maxTurnShortRatio and R_turnShortLoss. Inspect psi, storedEnergy, lossPower and parameterPower.</p><p>TurnShort is an equivalent winding model. parameterPower records the power associated with prescribed inductance variation.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Basic.Inductor</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{60,0},{90,0}}, color={0,0,255}, thickness=0.5),

@@ -1,6 +1,6 @@
 within MSLFaults.Mechanics.Rotational.Components;
 model FaultableLossyGear
-  "Gear with mesh efficiency and bearing friction (stuck/rolling possible)"
+  "Gear with nominal mesh losses and an additional fault torque"
 
   extends Modelica.Mechanics.Rotational.Icons.Gear;
   extends Modelica.Mechanics.Rotational.Interfaces.PartialElementaryTwoFlangesAndSupport2;
@@ -58,7 +58,7 @@ model FaultableLossyGear
   Modelica.Units.SI.Torque tauLossMin_m "Torque loss for negative speed";
 
   Boolean tau_aPos(start=true)
-    "Only for backwards compatibility (was previously: true, if torque of flange_a is not negative)";
+    "Alias of the inferred driving-torque sign";
   Boolean tau_etaPos(start=true) "= true, if torque tau_eta is not negative";
   Boolean startForward(start=false) "= true, if starting to roll forward";
   Boolean startBackward(start=false) "= true, if starting to roll backward";
@@ -82,23 +82,23 @@ model FaultableLossyGear
 
   Modelica.Units.SI.Torque tau_eta_p "tau_eta assuming positive omega";
   Modelica.Units.SI.Torque tau_eta_m "tau_eta assuming negative omega";
-  type FaultMode=enumeration(Normal "正常", GearRatioError "传动比误差", EfficiencyLoss "效率下降", ToothDamage "齿损伤扰动", LockedGear "齿轮锁死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real ratioFault=0.9*ratio;
-  parameter Modelica.Units.SI.Torque lossTorqueFault=1;
-  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9;
-  parameter Modelica.Units.SI.Frequency toothFrequency=20;
+  type FaultMode=enumeration(Normal "Nominal component relation", GearRatioError "Changed kinematic transmission ratio", EfficiencyLoss "Additional opposing torque", ToothDamage "Sinusoidal tooth-related torque", LockedGear "Declared gear-locking approximation");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Real ratioFault=0.9*ratio "Transmission ratio at full ratio-error effect";
+  parameter Modelica.Units.SI.Torque lossTorqueFault=1 "Amplitude of the additional gear-loss or tooth torque";
+  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9 "Finite viscous coefficient used by the locking approximation";
+  parameter Modelica.Units.SI.Frequency toothFrequency=20 "Frequency of the prescribed tooth-torque sinusoid";
   parameter Modelica.Units.SI.AngularVelocity wRegularization=1e-3
     "Speed scale for smooth efficiency-loss torque reversal";
-  Real ratio_effective;
-  Modelica.Units.SI.Torque addedLossTorque;
+  Real ratio_effective "Transmission ratio in the current kinematic relation";
+  Modelica.Units.SI.Torque addedLossTorque "Additional torque beyond the nominal gear-loss law";
 protected
   constant Modelica.Units.SI.AngularAcceleration unitAngularAcceleration=1;
   constant Modelica.Units.SI.Torque unitTorque=1;
@@ -125,14 +125,14 @@ protected
   //  tau_bf2_0=1/eta_mf2*tau_bf_a_0 + 1/ratio tau_bf_a_0
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -249,7 +249,7 @@ equation
   locked = not (ideal or pre(mode) == Forward or startForward or pre(mode)
      == Backward or startBackward);
 
-  /* Parameterized curve description a_a = f1(sa), tauLoss = f2(sa)
+  /* Parametrised curve description a_a = f1(sa), tauLoss = f2(sa)
        In comparison to Modelica.Mechanics.Rotational.FrictionBase it is possible
        to simplify the following expression as mode == Stuck is assured in case
        of startForward or startBackward */
@@ -270,169 +270,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> FaultableLossyGear</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Real ratio(start=1); parameter Real lossTable[:, 5]=[0, 1, 1, 0, 0]; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real ratioFault=0.9*ratio; parameter Modelica.Units.SI.Torque lossTorqueFault=1; parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9; parameter Modelica.Units.SI.Frequency toothFrequency=20; parameter Modelica.Units.SI.AngularVelocity wRegularization=1e-3</p><p><b>Behavior</b> FaultableLossyGear</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced LossyGear</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.LossyGear</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableLossyGear 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This component models the gear ratio and the <strong>losses</strong> of
-a standard gear box in a <strong>reliable</strong> way including the stuck phases
-that may occur at zero speed. The gear boxes that can
-be handled are fixed in the ground or on a moving support, have one input and one
-output shaft, and are essentially described by the equations:
-</p>
-<blockquote><pre>
-             flange_a.phi  = i*flange_b.phi;
--(flange_b.tau - tau_bf_b) = i*eta_mf*(flange_a.tau - tau_bf_a);
-
-// or        -flange_b.tau = i*eta_mf*(flange_a.tau - tau_bf_a - tau_bf_b/(i*eta_mf));
-</pre></blockquote>
-<p>
-where
-</p>
-
-<ul>
-<li> <strong>i</strong> is the constant <strong>gear ratio</strong>,</li>
-
-<li> <strong>eta_mf</strong> = eta_mf(w_a) is the <strong>mesh efficiency</strong> due to the
-     friction between the teeth of the gear wheels,</li>
-
-<li> <strong>tau_bf_a</strong> = tau_bf_a(w_a) is the <strong>bearing friction torque</strong>
-     on the flange_a side,</li>
-
-<li> <strong>tau_bf_b</strong> = tau_bf_b(w_a) is the <strong>bearing friction torque</strong>
-     on the flange_b side, and</li>
-
-<li><strong>w_a</strong> = der(flange_a.phi) is the speed of flange_a</li>
-</ul>
-
-<p>
-The loss terms \"eta_mf\", \"tau_bf_a\" and \"tau_bf_b\" are functions of the
-<em>absolute value</em> of the input shaft speed w_a and of the energy
-flow direction. They are defined by parameter <strong>lossTable[:,5]
-</strong> where the columns of this table have the following
-meaning:
-</p>
-
-<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">
-  <tbody>
-    <tr>
-      <td>|w_a|</td>
-      <td>eta_mf1</td>
-      <td>eta_mf2</td>
-      <td>|tau_bf1|</td>
-      <td>|tau_bf2|</td>
-    </tr>
-    <tr>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-    </tr>
-    <tr>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-      <td align=\"center\">&hellip;</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>with</p>
-<table border=\"1\" cellspacing=\"0\" cellpadding=\"2\">
-  <tbody>
-    <tr>
-      <td>|w_a|</td>
-      <td>Absolute value of angular velocity of input shaft flange_a</td>
-    </tr>
-    <tr>
-      <td>eta_mf1</td>
-      <td>Mesh efficiency in case that flange_a is driving</td>
-    </tr>
-    <tr>
-      <td>eta_mf2</td>
-      <td>Mesh efficiency in case that flange_b is driving</td>
-    </tr>
-    <tr>
-      <td>|tau_bf1|</td>
-      <td> Absolute resultant bearing friction torque with respect to flange_a
-                        in case that flange_a is driving<br>
-                        (= |tau_bf_a*eta_mf1 + tau_bf_b/i|)
-                        </td>
-    </tr>
-    <tr>
-      <td>|tau_bf2|</td>
-      <td> Absolute resultant bearing friction torque with respect to flange_a
-                        in case that flange_b is driving<br>
-                        (= |tau_bf_a/eta_mf2 + tau_bf_b/i|)
-                        </td>
-    </tr>
-  </tbody>
-</table>
-<p>
-With these variables, the mesh efficiency and the bearing friction
-are formally defined as:
-</p>
-
-<blockquote><pre>
-<strong>if</strong> (flange_a.tau - tau_bf_a)*w_a &gt; 0 <strong>or</strong>
-   (flange_a.tau - tau_bf_a) == 0 <strong>and</strong> w_a &gt; 0 <strong>then</strong>
-   eta_mf := eta_mf1
-   tau_bf := tau_bf1
-<strong>elseif</strong> (flange_a.tau - tau_bf_a)*w_a &lt; 0 <strong>or</strong>
-       (flange_a.tau - tau_bf_a) == 0 <strong>and</strong> w_a &lt; 0 <strong>then</strong>
-   eta_mf := 1/eta_mf2
-   tau_bf := tau_bf2
-<strong>else</strong> // w_a == 0
-   eta_mf and tau_bf are computed such that <strong>der</strong>(w_a) = 0
-<strong>end if</strong>;
--flange_b.tau = i*(eta_mf*flange_a.tau - tau_bf);
-</pre></blockquote>
-
-<p>
-Note, that the losses are modeled in a physically meaningful way taking
-into account that at zero speed the movement may be locked due
-to the friction in the gear teeth and/or in the bearings.
-Due to this important property, this component can be used in
-situations where the combination of the components
-Modelica.Mechanics.Rotational.IdealGear and
-Modelica.Mechanics.Rotational.GearEfficiency will fail because,
-e.g., chattering occurs when using the
-Modelica.Mechanics.Rotational.GearEfficiency model.
-</p>
-
-<h4>Acknowledgement</h4>
-<ul>
-<li> The essential idea to model efficiency
-     in this way is from Christoph Pelchen, ZF Friedrichshafen.</li>
-<li> The article (Pelchen et.al. 2002), see Literature below,
-     and the first implementation of LossyGear (up to version 3.1 of package Modelica)
-     contained a bug leading to a non-converging solution in cases where the
-     driving side is not obvious.
-     This was pointed out by Christian Bertsch and Max Westenkirchner, Bosch,
-     and Christian Bertsch proposed a concrete solution how to fix this
-     bug, see Literature below.</li>
-</ul>
-
-<h4>Literature</h4>
-
-<ul>
-<li>Pelchen C.,
-Schweiger C.,
-and <a href=\"http://www.robotic.dlr.de/Martin.Otter/\">Otter M.</a>:
-&quot;<a href=\"https://www.modelica.org/events/Conference2002/papers/p33_Pelchen.pdf\">Modeling
-and Simulating the Efficiency of Gearboxes and of Planetary Gearboxes</a>,&quot; in
-<em>Proceedings of the 2nd International Modelica Conference, Oberpfaffenhofen, Germany,</em>
-pp. 257-266, The Modelica Association and Institute of Robotics and Mechatronics,
-Deutsches Zentrum f&uuml;r Luft- und Raumfahrt e. V., March 18-19, 2002.</li>
-
-<li>Bertsch C. (2009):
-&quot;<a href=\"modelica://Modelica/Resources/Documentation/Mechanics/Lossy-Gear-Bug_Solution.pdf\">Problem
-with model LossyGear and a proposed solution</a>&quot;,
-Ticket <a href=\"https://github.com/modelica/ModelicaStandardLibrary/issues/108\">#108</a>,
-Sept. 11, 2009.</li>
-</ul>
-
-</html>"),
+    Documentation(info="<html><p>GearRatioError changes the ideal angular relation. EfficiencyLoss adds a torque with tanh-regularised speed reversal; ToothDamage adds a sinusoidal torque; LockedGear adds viscous torque. The nominal mesh-efficiency and bearing-friction state machine remains in use.</p><p>Set ratio and lossTable, then select ratioFault, lossTorqueFault or lockDamping; inspect addedLossTorque separately from lossPower.</p><p>lossPower contains only tauLoss*w_a, so additional fault-torque work is not included in that output or its heat port. Keep wRegularization positive.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.LossyGear</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true,
         extent={{-100.0,-100.0},{100.0,100.0}}),
       graphics={

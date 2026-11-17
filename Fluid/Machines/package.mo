@@ -1,5 +1,5 @@
 within MSLFaults.Fluid;
-package Machines "Machines"
+package Machines "Pumps with command and shaft disturbances"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,5 +8,5 @@ package Machines "Machines"
         Line(points={{-66.3,0},{-48.45,0}}, color={0,127,255}, thickness=0.75, pattern=LinePattern.Solid),
         Line(points={{48.45,0},{66.3,0}}, color={0,127,255}, thickness=0.75, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Pumps with modified control set-points, prescribed rotational speed or an additional shaft torque. Each class contains its named MSL pump model.</p></html>"));
 end Machines;

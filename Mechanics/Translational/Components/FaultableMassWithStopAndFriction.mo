@@ -1,6 +1,6 @@
 within MSLFaults.Mechanics.Translational.Components;
 model FaultableMassWithStopAndFriction
-  "Sliding mass with hard stop and Stribeck friction"
+  "Sliding mass with friction faults and movable hard stops"
   extends PartialFrictionWithStop;
   Modelica.Units.SI.Velocity v(start=0, stateSelect=StateSelect.always)
     "Absolute velocity of flange_a and flange_b";
@@ -21,20 +21,20 @@ model FaultableMassWithStopAndFriction
   extends Modelica.Thermal.HeatTransfer.Interfaces.PartialElementaryConditionalHeatPortWithoutT;
   Integer stopped
     "Mode of stop (-1: hard stop at flange_a, 0: no stop, +1: hard stop at flange_b";
-  type FaultMode=enumeration(Normal "正常", MassDrift "质量漂移", FrictionLoss "摩擦下降", FrictionIncrease "摩擦增加", StopShift "限位漂移", Seizure "卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Mass mFault=0.5*m;
-  parameter Real frictionScaleFault(min=0)=2;
-  parameter Modelica.Units.SI.Position stopShift=0.1;
-  Modelica.Units.SI.Mass m_effective;
-  Real frictionScale;
+  type FaultMode=enumeration(Normal "Nominal component relation", MassDrift "Changed effective mass", FrictionLoss "Reduced friction", FrictionIncrease "Increased friction", StopShift "Translated hard-stop locations", Seizure "Increased finite mechanical resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.Mass mFault=0.5*m "Mass at full parameter-change effect";
+  parameter Real frictionScaleFault(min=0)=2 "Friction multiplier at full configured increase effect";
+  parameter Modelica.Units.SI.Position stopShift=0.1 "Offset applied to both hard-stop locations at full effect";
+  Modelica.Units.SI.Mass m_effective "Effective mass used by the force relation";
+  Real frictionScale "Effective friction multiplier";
   encapsulated partial model PartialFrictionWithStop
     "Base model of Coulomb friction elements with stop"
 
@@ -120,23 +120,18 @@ model FaultableMassWithStopAndFriction
        then Forward else if (pre(mode) == Backward or pre(mode) == Free or
       startBackward) and v_relfric < 0 and s > (smin_effective + L/2) then Backward
        else Stuck);
-    annotation (Documentation(info="<html><p><b>Purpose</b> FaultableMassWithStopAndFriction</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Modelica.Units.SI.Mass m(start=1) \"Mass\"; parameter Real F_prop(; parameter Modelica.Units.SI.Force F_Coulomb(start=5); parameter Modelica.Units.SI.Force F_Stribeck(start=10) \"Stribeck effect\"; parameter Real fexp(; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Mass mFault=0.5*m; parameter Real frictionScaleFault(min=0)=2</p><p><b>Behavior</b> FaultableMassWithStopAndFriction</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced MassWithStopAndFriction</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.MassWithStopAndFriction</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p>
-<p>
-Basic model for Coulomb friction that models the stuck phase in a reliable way.<br>
-Additionally, a left and right stop are handled.
-</p>
-</html>"));
+    annotation (Documentation(info="<html><p>Internal Coulomb-friction and hard-stop state machine for the surrounding sliding-mass model. Subclasses supply the force law and effective stop positions. The state transitions distinguish forward motion, backward motion and sticking at the configured boundaries.</p></html>"));
   end PartialFrictionWithStop;
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -214,10 +209,10 @@ Version 2:
         stopped := if s <= smin + L/2 then -1 else if s >= smax - L/2 then +1 else 0;
       when (initial()) then
         assert(s > smin + L/2 or s >= smin + L/2 and v >= 0,
-          "Error in initialization of hard stop. (s - L/2) must be >= smin\n"+
+          "Error in initialisation of hard stop. (s - L/2) must be >= smin\n"+
           "(s=" + String(s) + ", L=" + String(L) + ", smin=" + String(smin) + ")");
         assert(s < smax - L/2 or s <= smax - L/2 and v <= 0,
-          "Error in initialization of hard stop. (s + L/2) must be <= smax\n"+
+          "Error in initialisation of hard stop. (s + L/2) must be <= smax\n"+
           "(s=" + String(s) + ", L=" + String(L) + ", smax=" + String(smax) + ")");
       end when;
       when stopped <> 0 then
@@ -230,102 +225,7 @@ Version 2:
 
 
   annotation (
-    Documentation(info="<html><p>用法：将 FaultableMassWithStopAndFriction 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>This element describes the <em>Stribeck friction characteristics</em> of a sliding mass,
-i. e. the frictional force acting between the sliding mass and the support. Included is a
-<em>hard stop</em> for the position.</p>
-<p>
-The surface is fixed and there is friction between sliding mass and surface.
-The frictional force f is given for positive velocity v by:
-</p>
-<blockquote><pre>
-f = F_Coulomb + F_prop * v + F_Stribeck * exp (-fexp * v)
-</pre></blockquote>
-
-<p>
-<img src=\"modelica://Modelica/Resources/Images/Mechanics/Translational/Components/Stribeck.png\" alt=\"Stribeck friction\">
-</p>
-
-<p>
-The distance between the left and the right connector is given by parameter L.
-The position of the center of gravity, coordinate s, is in the middle between
-the two flanges.</p>
-<p>
-There are hard stops at smax and smin, i. e. if
-<em><code>flange_a.s &gt;= smin</code></em> and <em><code>flange_b.s &lt;= xmax </code></em> the sliding mass can move freely.</p>
-<p>When the absolute velocity becomes zero, the sliding mass becomes stuck, i.e., the absolute position remains constant. In this phase the
-friction force is calculated from a force balance due to the requirement that the
-absolute acceleration shall be zero. The elements begin to slide when the friction
-force exceeds a threshold value, called the maximum static friction force, computed via:</p>
-<blockquote><pre>
-maximum_static_friction =  F_Coulomb + F_Stribeck
-</pre></blockquote>
-<p>
-<font color=\"#ff0000\"> <strong>This requires the states Stop.s and Stop.v</strong> </font>. If these states are eliminated during the index reduction
-the model will not work. To avoid this any inertias should be connected via springs
-to the Stop element, other sliding masses, dampers or hydraulic chambers must be avoided.</p>
-<p>For more details of the used friction model see the following reference:</p>
-
-<dl>
-<dt>Beater P. (1999):</dt>
-<dd><em>Entwurf hydraulischer Maschinen</em> (in German), Springer Verlag Berlin Heidelberg New York, <a href=\"https://doi.org/10.1007/978-3-642-58395-7\">DOI 10.1007/978-3-642-58395-7</a>.</dd>
-</dl>
-
-<p>The friction model is implemented in a \"clean\" way by state events and leads to
-continuous/discrete systems of equations which have to be solved by appropriate
-numerical methods. The method is described in
-(see also a short sketch in <a href=\"modelica://Modelica.Mechanics.Rotational.UsersGuide.ModelingOfFriction\">UsersGuide.ModelingOfFriction</a>):
-</p>
-
-<dl>
-<dt>Otter M., Elmqvist H., and Mattsson S.E. (1999):</dt>
-<dd><em>Hybrid Modeling in Modelica based on the Synchronous Data Flow Principle</em>.
-    CACSD'99, Aug. 22.-26, Hawaii. </dd>
-</dl>
-
-<p>More precise friction models take into account the elasticity of the material when
-the two elements are \"stuck\", as well as other effects, like hysteresis. This has
-the advantage that the friction element can be completely described by a differential
-equation without events. The drawback is that the system becomes stiff (about 10-20 times
-slower simulation) and that more material constants have to be supplied which requires more
-sophisticated identification. For more details, see the following references, especially
-(Armstrong and Canudas de Wit 1996):</p>
-<dl>
-<dt>
-Armstrong B. (1991):</dt>
-<dd><em>Control of Machines with Friction</em>. Kluwer Academic Press, Boston MA.<br>
-</dd>
-<dt>Armstrong B., and Canudas de Wit C. (1996): </dt>
-<dd><em>Friction Modeling and Compensation.</em> The Control Handbook, edited by W.S.Levine, CRC Press, pp. 1369-1382.<br>
-</dd>
-<dt>Canudas de Wit C., Olsson H., &Aring;str&ouml;m K.J., and Lischinsky P. (1995): </dt>
-<dd><em>A new model for control of systems with friction.</em> IEEE Transactions on Automatic Control, Vol. 40, No. 3, pp. 419-425.<br>
-</dd>
-</dl>
-
-<h4>Optional heatPort</h4>
-<p>
-The dissipated energy is transported in form of heat to the optional heatPort connector
-that can be enabled via parameter \"useHeatPort\". Independently whether the heatPort is
-or is not enabled, the dissipated power is defined with variable \"lossPower\".
-If contact occurs at the hard stops, the lossPower is not correctly modelled
-at this time instant, because the hard stop would introduce a Dirac impulse
-in the lossPower due to the discontinuously changing kinetic energy of the mass
-(lossPower is the derivative of the kinetic energy at the time instant of the impact).
-</p>
-
-</html>",
-      revisions="<html>
-<h4>Release Notes</h4>
-<ul>
-<li><em>First Version from December 7, 1999 by P. Beater (based on Rotational.BearingFriction)</em></li>
-<li><em>July 14, 2001 by P. Beater, assert on initialization added, diagram modified</em></li>
-<li><em>October 11, 2001, by Hans Olsson, Dassault Syst&egrave;mes AB, modified assert to handle start at stops,
-modified event logic such if you have friction parameters equal to zero you do not get events
-between the stops.</em></li>
-<li><em>June 10, 2002 by P. Beater, StateSelect.always for variables s and v (instead of fixed=true). </em></li>
-</ul>
-</html>"),
+    Documentation(info="<html><p>MassDrift changes the coefficient of acceleration. FrictionLoss, FrictionIncrease and Seizure scale the friction law. StopShift translates both stop locations by the same activated offset. Reaching a stop reinitialises the position to that boundary and the velocity to zero.</p><p>Set m, L, smin, smax and the friction parameters; initialise the body within its stops and inspect s, v, stopped and lossPower.</p><p>The mass law uses m_effective*der(v), without a variable-mass momentum term. lossPower records frictional power and excludes kinetic energy removed by a hard-stop reset.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.MassWithStopAndFriction</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{-100,0},{100,0}}, color={0,127,0}, thickness=0.5),

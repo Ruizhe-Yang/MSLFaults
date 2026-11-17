@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational.Components;
-model FaultableGearbox "Realistic model of a gearbox (based on LossyGear)"
+model FaultableGearbox "Elastic gearbox with an additional fault torque"
   extends Modelica.Mechanics.Rotational.Icons.Gearbox;
   extends Modelica.Mechanics.Rotational.Interfaces.PartialTwoFlangesAndSupport;
 
@@ -42,30 +42,30 @@ model FaultableGearbox "Realistic model of a gearbox (based on LossyGear)"
     final d=d,
     final useHeatPort=true) annotation (Placement(transformation(extent={{
             20,-20},{60,20}})));
-  type FaultMode=enumeration(Normal "正常", ToothDamage "齿损伤周期扰动", EfficiencyLoss "附加损耗", LockedGear "锁死阻尼");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Torque faultTorqueAmplitude=1;
-  parameter Modelica.Units.SI.Frequency toothFrequency=20;
-  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9;
+  type FaultMode=enumeration(Normal "Nominal component relation", ToothDamage "Sinusoidal tooth-related torque", EfficiencyLoss "Additional opposing torque", LockedGear "Declared gear-locking approximation");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.Torque faultTorqueAmplitude=1 "Amplitude of the additional fault torque";
+  parameter Modelica.Units.SI.Frequency toothFrequency=20 "Frequency of the prescribed tooth-torque sinusoid";
+  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9 "Finite viscous coefficient used by the locking approximation";
   Modelica.Mechanics.Rotational.Sources.Torque faultTorqueSource(useSupport=true);
   Modelica.Blocks.Sources.RealExpression faultTorqueCommand(y=if faultMode==FaultMode.ToothDamage then faultActivation*faultTorqueAmplitude*sin(2*Modelica.Constants.pi*toothFrequency*time) elseif faultMode==FaultMode.EfficiencyLoss then -faultActivation*faultTorqueAmplitude*sign(der(flange_a.phi)) elseif faultMode==FaultMode.LockedGear then -faultActivation*lockDamping*der(flange_a.phi) else 0);
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -100,29 +100,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Realistic model of a gearbox (based on LossyGear)</p><p><b>Interfaces</b> extends Modelica.Thermal.HeatTransfer.Interfaces.PartialConditionalHeatPort(; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Real ratio(start=1); parameter Real lossTable[:, 5]=[0, 1, 1, 0, 0]; parameter Modelica.Units.SI.RotationalSpringConstant c(final min=Modelica.Constants.small,; parameter Modelica.Units.SI.RotationalDampingConstant d(final min=0, start=0); parameter Modelica.Units.SI.Angle b(final min=0) = 0 \"Total backlash\"; parameter StateSelect stateSelect=StateSelect.prefer; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Torque faultTorqueAmplitude=1</p><p><b>Behavior</b> Realistic model of a gearbox (based on LossyGear)</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced Gearbox</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.Gearbox</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableGearbox 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>This component models the essential effects of a gearbox, in
-particular</p>
-<ul>
-  <li>in component <strong>lossyGear</strong>
-    <ul>
-      <li>gear <strong>efficiency</strong> due to friction between the teeth</li>
-      <li><strong>bearing friction</strong></li>
-    </ul></li>
-  <li>in component <strong>elastoBacklash</strong>
-    <ul>
-      <li>gear <strong>elasticity</strong></li>
-      <li><strong>damping</strong></li>
-      <li><strong>backlash</strong></li>
-    </ul></li>
-</ul>
-<p>The inertia of the gear wheels is not modeled. If necessary,
-inertia has to be taken into account by connecting components of
-model Inertia to the left and/or the right flange of component
-Gearbox.
-</p>
-
-</html>"),
+    Documentation(info="<html><p>Combine the nominal LossyGear and ElastoBacklash components with a torque source on flange_a. ToothDamage supplies a sinusoid; EfficiencyLoss opposes the absolute input-shaft velocity; LockedGear adds finite viscous resistance to that velocity.</p><p>Configure ratio, lossTable, c, d and b; connect the shafts and support, then select the added torque mode.</p><p>The fault source does not change the native gear ratio or tooth stiffness. Its work is not included in the heat flow from the nominal gear and backlash components.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.Gearbox</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},
             {100,100}}),
       graphics={

@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational.Components;
-model FaultableIdealGear "Ideal gear without inertia"
+model FaultableIdealGear "Ideal gear with a variable ratio and prescribed tooth torque"
   extends Modelica.Mechanics.Rotational.Icons.Gear;
   extends
     Modelica.Mechanics.Rotational.Interfaces.PartialElementaryTwoFlangesAndSupport2;
@@ -10,31 +10,31 @@ model FaultableIdealGear "Ideal gear without inertia"
   Modelica.Units.SI.Angle phi_b
     "Angle between right shaft flange and support";
 
-  type FaultMode=enumeration(Normal "正常", GearRatioError "传动比误差", ToothDamage "齿损伤扰动", LockedGear "齿轮锁死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real ratioFault=0.9*ratio;
-  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9;
-  parameter Modelica.Units.SI.Torque toothTorque=1;
-  parameter Modelica.Units.SI.Frequency toothFrequency=20;
-  Real ratio_effective;
-  Modelica.Units.SI.Torque faultTorque;
+  type FaultMode=enumeration(Normal "Nominal component relation", GearRatioError "Changed kinematic transmission ratio", ToothDamage "Sinusoidal tooth-related torque", LockedGear "Damping of the exact kinematic residual");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Real ratioFault=0.9*ratio "Transmission ratio at full ratio-error effect";
+  parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9 "Finite viscous coefficient used by the locking approximation";
+  parameter Modelica.Units.SI.Torque toothTorque=1 "Amplitude of the prescribed tooth-torque sinusoid";
+  parameter Modelica.Units.SI.Frequency toothFrequency=20 "Frequency of the prescribed tooth-torque sinusoid";
+  Real ratio_effective "Transmission ratio in the current kinematic relation";
+  Modelica.Units.SI.Torque faultTorque "Additional torque in the faulted balance";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -61,16 +61,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Ideal gear without inertia</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Real ratio(start=1); parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real ratioFault=0.9*ratio; parameter Modelica.Units.SI.RotationalDampingConstant lockDamping=1e9; parameter Modelica.Units.SI.Torque toothTorque=1; parameter Modelica.Units.SI.Frequency toothFrequency=20; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> Ideal gear without inertia</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p><b>Purpose</b> Fault-enhanced IdealGear</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Rotational.Components.IdealGear</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p><p>用法：将 FaultableIdealGear 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This element characterizes any type of gear box which is fixed in the
-ground and which has one driving shaft and one driven shaft.
-The gear is <strong>ideal</strong>, i.e., it does not have inertia, elasticity, damping
-or backlash. If these effects have to be considered, the gear has to be
-connected to other elements in an appropriate way.
-</p>
-
-</html>"),
+    Documentation(info="<html><p>GearRatioError changes the exact angular relation phi_a=ratio_effective*phi_b. ToothDamage adds a sinusoidal term to the torque balance. LockedGear applies damping to the derivative of that same kinematic residual.</p><p>Connect both shaft flanges and the optional support; configure ratioFault or toothTorque and toothFrequency.</p><p>The ideal constraint makes the LockedGear residual identically zero, so this mode contributes no additional locking torque. A changing ratio is a prescribed kinematic intervention.</p><p>Nominal reference: <code>Modelica.Mechanics.Rotational.Components.IdealGear</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true,
       extent={{-100,-100},{100,100}}),
       graphics={

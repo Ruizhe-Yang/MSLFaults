@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model TranslationalDrive "Connect a loaded mass to parallel grounded spring and damper"
+model TranslationalDrive "Force-driven mass with parallel spring and damper"
   Modelica.Blocks.Sources.Constant constantForce(k=1) annotation(Placement(transformation(origin={-180,66},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Mechanics.Translational.Sources.Force drive annotation(Placement(transformation(origin={-99,66},extent={{-12,-12},{12,12}},rotation=0)));
   replaceable Modelica.Mechanics.Translational.Components.Mass mass annotation(Placement(transformation(origin={-15,66},extent={{-15,-15},{15,15}},rotation=0))) constrainedby Modelica.Mechanics.Translational.Components.Mass(m=1,s(start=0,fixed=true),v(start=0,fixed=true));
@@ -29,5 +29,5 @@ equation
         Line(points={{-25,7},{-13,7},{-13,-33},{-10,-33}}, color={64,64,64}, thickness=0.65, pattern=LinePattern.Solid),
         Line(points={{62,24},{69,24},{69,-33},{62,-33}}, color={64,64,64}, thickness=0.65, pattern=LinePattern.Solid),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Connect a loaded mass to parallel grounded spring and damper</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> position</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p></html>"));
+      }),Documentation(info="<html><p>Apply 1 N to a replaceable mass supported by a parallel spring and damper. Native constraints use 1 kg, 100 N/m and 2 N.s/m, with fixed zero initial position and velocity. <code>position</code> reports the mass position.</p><p>Redeclare one of mass, spring or damper at a time and compare position.</p></html>"));
 end TranslationalDrive;

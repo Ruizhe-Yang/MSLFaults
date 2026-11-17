@@ -1,14 +1,14 @@
 within MSLFaults.Electrical.Analog.Semiconductors;
-model NPNFaultStage "Transistor stage containing a faultable NPN"
+model NPNFaultStage "NPN stage with lead resistance and a shunt capacitance"
 
-  parameter MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode faultMode=MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode.Normal;
-  parameter Real scenarioSeverity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=0;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0;
-  parameter Modelica.Units.SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter Real BfFault(min=Modelica.Constants.small)=10;
-  parameter Modelica.Units.SI.Conductance GbcFault=1e-12;
-  parameter Modelica.Units.SI.Conductance GbeFault=1e-12;
+  parameter MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode faultMode=MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode.Normal "Selected fault mode";
+  parameter Real scenarioSeverity(min=0,max=1)=1 "Severity passed to the transistor fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=0 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0 "Duration of a full-scale activation or recovery ramp";
+  parameter Modelica.Units.SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter Real BfFault(min=Modelica.Constants.small)=10 "Forward current gain at completed drift";
+  parameter Modelica.Units.SI.Conductance GbcFault=1e-12 "Base-collector conductance at full leakage effect";
+  parameter Modelica.Units.SI.Conductance GbeFault=1e-12 "Base-emitter conductance at full leakage effect";
 
   Modelica.Electrical.Analog.Basic.Resistor rtb(R=0.05) annotation (Placement(transformation(extent={{-80,
             -10},{-60,10}})));
@@ -67,9 +67,7 @@ equation
         Text(extent={{-150,155},{150,125}}, textColor={0,0,255}, textString="%name"),
         Text(extent={{108,94},{139,62}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> Transistor stage containing a faultable NPN</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode faultMode=MSLFaults.Electrical.Analog.Semiconductors.FaultableNPN.FaultMode.Normal; parameter Real scenarioSeverity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=0; parameter Modelica.Units.SI.Time transitionTime(min=0)=0; parameter Modelica.Units.SI.Time driftTime(min=Modelica.Constants.small)=1; parameter Real BfFault(min=Modelica.Constants.small)=10; parameter Modelica.Units.SI.Conductance GbcFault=1e-12; parameter Modelica.Units.SI.Conductance GbeFault=1e-12</p><p><b>Behavior</b> Transistor stage containing a faultable NPN</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> Inspect the declared output variables.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：直接仿真 NPNFaultStage，或修改 scenarioSeverity 后重新仿真。该场景通过 extends 与 redeclare，把基准系统中的目标元件替换为 Faultable 元件。</p>
-<p>Since the simple bipolar transistor model does not have base or collector resistances both are added in this component. Additionally, a capacity is added to the base pin. See the schematic for more details.  In such a way the transistor model can be enhanced to become more common.</p>
-</html>"),
+    Documentation(info="<html><p>Connect a FaultableNPN through base and collector lead resistances, with a capacitance from the internal base node to ground. Parameters expose the transistor fault mode, severity, onset, transition, drift time and selected gain/leakage targets.</p><p>Connect b, c and e as a circuit stage; set scenarioSeverity and faultMode and inspect Tr terminal currents.</p><p>The transistor retains its default faultEndTime of 3 s. This assembly is not a direct replacement for a bare NPN transistor.</p><p>Configure the internal transistor through the exposed stage parameters.</p></html>"),
     Diagram(coordinateSystem(preserveAspectRatio=false, extent={{-100,-100},{
             100,100}}), graphics={Text(
           extent={{-76,82},{-2,54}},

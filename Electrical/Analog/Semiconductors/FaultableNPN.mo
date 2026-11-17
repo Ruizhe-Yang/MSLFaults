@@ -1,5 +1,5 @@
 within MSLFaults.Electrical.Analog.Semiconductors;
-model FaultableNPN "Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor"
+model FaultableNPN "NPN transistor with gain, junction and collector-path faults"
   import SI = Modelica.Units.SI;
   parameter Real Bf=50 "Forward beta";
   parameter Real Br=0.1 "Reverse beta";
@@ -16,20 +16,20 @@ model FaultableNPN "Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor"
   parameter Real Mc=0.333 "Base-collector gradation exponent";
   parameter SI.Conductance Gbc=1e-15 "Base-collector conductance";
   parameter SI.Conductance Gbe=1e-15 "Base-emitter conductance";
-  parameter Real EMin=-100;
-  parameter Real EMax=40;
+  parameter Real EMin=-100 "Lower exponential-continuation bound";
+  parameter Real EMax=40 "Upper exponential-continuation bound";
   parameter Boolean useTemperatureDependency=false
-    annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
-  parameter SI.Voltage Vt=0.02585 annotation(Dialog(enable=not useTemperatureDependency));
-  parameter SI.Temperature Tnom=300.15 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real XTI=3 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real XTB=0 annotation(Dialog(enable=useTemperatureDependency));
-  parameter SI.Voltage EG=1.11 annotation(Dialog(enable=useTemperatureDependency));
-  parameter Real NF=1.0;
-  parameter Real NR=1.0;
-  parameter SI.Voltage IC=0 annotation(Dialog(enable=UIC));
-  parameter Boolean UIC=false;
-  parameter Boolean useSubstrate=false;
+    "Enable temperature-dependent electrical parameters" annotation(Evaluate=true,HideResult=true,choices(checkBox=true));
+  parameter SI.Voltage Vt=0.02585 "Nominal thermal voltage when temperature dependence is disabled" annotation(Dialog(enable=not useTemperatureDependency));
+  parameter SI.Temperature Tnom=300.15 "Nominal semiconductor temperature" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real XTI=3 "Temperature exponent of saturation current" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real XTB=0 "Temperature exponent of current gain" annotation(Dialog(enable=useTemperatureDependency));
+  parameter SI.Voltage EG=1.11 "Semiconductor energy-gap parameter" annotation(Dialog(enable=useTemperatureDependency));
+  parameter Real NF=1.0 "Forward junction emission coefficient";
+  parameter Real NR=1.0 "Reverse junction emission coefficient";
+  parameter SI.Voltage IC=0 "Initial collector-substrate voltage when UIC is true" annotation(Dialog(enable=UIC));
+  parameter Boolean UIC=false "Apply IC as the initial collector-substrate voltage";
+  parameter Boolean useSubstrate=false "Expose the substrate pin";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(
     useHeatPort=useTemperatureDependency);
 
@@ -43,8 +43,8 @@ model FaultableNPN "Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor"
     annotation (Placement(transformation(extent={{110,-10},{90,10}})));
 
   type FaultMode=enumeration(
-    Normal "Nominal MSL behavior",
-    CurrentGainLoss "Compatibility mode reducing forward and reverse current gain",
+    Normal "Nominal behaviour",
+    CurrentGainLoss "Progressive reduction of both current gains",
     ForwardGainLoss "Progressive forward current-gain reduction",
     ReverseGainLoss "Progressive reverse current-gain reduction",
     SaturationCurrentDrift "Progressive transport saturation-current drift",
@@ -52,20 +52,20 @@ model FaultableNPN "Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor"
     JunctionDegradation "Depletion-capacitance degradation",
     CollectorEmitterOpen "System-level interruption of collector transport",
     CollectorEmitterShort "Finite collector-emitter shunt");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter Real BfFault(min=Modelica.Constants.small)=0.2*Bf;
-  parameter Real BrFault(min=Modelica.Constants.small)=0.2*Br;
-  parameter SI.Current IsFault=10*Is;
-  parameter SI.Conductance GbcFault=1e3*Gbc;
-  parameter SI.Conductance GbeFault=1e3*Gbe;
-  parameter SI.Capacitance CjeFault=0.5*Cje;
-  parameter SI.Capacitance CjcFault=0.5*Cjc;
-  parameter SI.Resistance RCEShort=1e-3;
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter Real BfFault(min=Modelica.Constants.small)=0.2*Bf "Forward current gain at completed drift";
+  parameter Real BrFault(min=Modelica.Constants.small)=0.2*Br "Reverse current gain at completed drift";
+  parameter SI.Current IsFault=10*Is "Transport saturation current at completed drift";
+  parameter SI.Conductance GbcFault=1e3*Gbc "Base-collector conductance at full leakage effect";
+  parameter SI.Conductance GbeFault=1e3*Gbe "Base-emitter conductance at full leakage effect";
+  parameter SI.Capacitance CjeFault=0.5*Cje "Base-emitter depletion capacitance at full effect";
+  parameter SI.Capacitance CjcFault=0.5*Cjc "Base-collector depletion capacitance at full effect";
+  parameter SI.Resistance RCEShort=1e-3 "Finite collector-emitter shunt resistance";
 
   SI.Voltage vbc "Base-collector voltage";
   SI.Voltage vbe "Base-emitter voltage";
@@ -86,19 +86,19 @@ model FaultableNPN "Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor"
   SI.Voltage vS;
   SI.Current iS;
   SI.Current iCEShort "Added fixed-topology collector-emitter shunt current";
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  Real Bf_effective;
-  Real Br_effective;
-  SI.Current Is_effective;
-  SI.Conductance Gbc_effective;
-  SI.Conductance Gbe_effective;
-  SI.Capacitance Cje_effective;
-  SI.Capacitance Cjc_effective;
-  Real collectorTransportFactor(min=0,max=1);
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  Real Bf_effective "Effective forward current gain";
+  Real Br_effective "Effective reverse current gain";
+  SI.Current Is_effective "Effective transport saturation current";
+  SI.Conductance Gbc_effective "Effective base-collector conductance";
+  SI.Conductance Gbe_effective "Effective base-emitter conductance";
+  SI.Capacitance Cje_effective "Effective base-emitter depletion capacitance";
+  SI.Capacitance Cjc_effective "Effective base-collector depletion capacitance";
+  Real collectorTransportFactor(min=0,max=1) "Multiplier applied to collector transport";
 
 protected
   function powlinLocal "MSL semiconductor depletion-capacitance continuation"
@@ -111,7 +111,7 @@ protected
 
   function exlinLocal "Exponentially evaluate and linearly continue above Maxexp"
     input Real x;
-    input Real Maxexp;
+    input Real Maxexp "Upper argument for exponential-to-linear continuation";
     output Real z;
   algorithm
     z:=if x>Maxexp then exp(Maxexp)*(1+x-Maxexp) else exp(x);
@@ -119,8 +119,8 @@ protected
 
   function exlin2Local "Linearly continue the exponential at both bounds"
     input Real x;
-    input Real Minexp;
-    input Real Maxexp;
+    input Real Minexp "Lower argument for exponential continuation";
+    input Real Maxexp "Upper argument for exponential-to-linear continuation";
     output Real z;
   algorithm
     z:=if x<Minexp then exp(Minexp)*(1+x-Minexp) else exlinLocal(x,Maxexp);
@@ -129,18 +129,18 @@ protected
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 initial equation
   if UIC then
     vcs=IC;
@@ -199,15 +199,7 @@ equation
 
 
   annotation(defaultComponentName="npn",
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(; Modelica.Electrical.Analog.Interfaces.NegativePin S(final i=iS,final v=vS) if useSubstrate \"Substrate\"</p><p><b>Parameters</b> parameter Real Bf=50 \"Forward beta\"; parameter Real Br=0.1 \"Reverse beta\"; parameter SI.Current Is=1e-16 \"Transport saturation current\"; parameter SI.InversePotential Vak=0.02 \"Early voltage (inverse)\"; parameter SI.Time Tauf=0.12e-9 \"Ideal forward transit time\"; parameter SI.Time Taur=5e-9 \"Ideal reverse transit time\"; parameter SI.Capacitance Ccs=1e-12 \"Collector-substrate capacitance\"; parameter SI.Capacitance Cje=0.4e-12 \"Base-emitter depletion capacitance\"; parameter SI.Capacitance Cjc=0.5e-12 \"Base-collector depletion capacitance\"; parameter SI.Voltage Phie=0.8 \"Base-emitter diffusion voltage\"; parameter Real Me=0.4 \"Base-emitter gradation exponent\"; parameter SI.Voltage Phic=0.8 \"Base-collector diffusion voltage\"</p><p><b>Behavior</b> Fault-enhanced MSL 4.0.0 Ebers-Moll NPN transistor</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced NPN</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Semiconductors.NPN</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableNPN 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p><p>Independent fault-enhanced copy of the MSL 4.0.0
-Ebers-Moll NPN model. Forward and reverse gain loss independently act on
-<code>Bf</code>/<code>Br</code>; the legacy combined mode remains for compatibility.
-Leakage acts on <code>Gbe/Gbc</code>, saturation-current drift on <code>Is</code>,
-and junction degradation on <code>Cje/Cjc</code>. C-E open scales collector
-transport while C-E short uses a finite shunt. Normal and zero severity reproduce MSL.</p>
-<p><b>Evidence:</b> NASA NTRS 19700022435 reports reduced bipolar current gain and
-increased junction leakage after irradiation; NTRS 20210018053 summarizes BJT
-gain degradation. Evidence level A for directions, B/C for this lumped mapping.</p></html>"),
+    Documentation(info="<html><p>Retain the bipolar junction, charge-storage and optional temperature/substrate relations. CurrentGainLoss modifies both current gains; ForwardGainLoss, ReverseGainLoss and SaturationCurrentDrift use the separate drift clock. Other modes change junction conductances or depletion capacitances, attenuate collector transport, or add a finite collector-emitter shunt.</p><p>Connect B, C and E and, when enabled, S and heatPort. Configure the selected gain, junction or RCEShort target and inspect terminal currents and LossPower.</p><p>CollectorEmitterOpen attenuates collector transport; base-junction and substrate relations remain. It does not disconnect every terminal current.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Semiconductors.NPN</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{-20,40},{-20,-40}}, color={255,0,0}, thickness=0.8),

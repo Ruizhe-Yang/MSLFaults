@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model SensorCircuit "Keep an identical native measuring circuit under measurement faults"
+model SensorCircuit "Electrical circuit for measurement-fault comparisons"
   Modelica.Blocks.Sources.RealExpression ramp(y=time) annotation(Placement(transformation(origin={-275,32},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Electrical.Analog.Sources.SignalVoltage source annotation(Placement(transformation(origin={-180,12},extent={{-17,-17},{17,17}},rotation=270)));
   Modelica.Electrical.Analog.Basic.Ground ground annotation(Placement(transformation(origin={-180,-106},extent={{-12,-12},{12,12}},rotation=0)));
@@ -43,5 +43,5 @@ equation
         Ellipse(extent={{40.4,-34.6},{43.6,-31.4}}, lineColor={64,64,64}, fillColor={64,64,64}, fillPattern=FillPattern.Solid, pattern=LinePattern.Solid, lineThickness=0.4),
         Text(extent={{20.8,-39.8},{63.2,-54.2}}, textString="A", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Keep an identical native measuring circuit under measurement faults</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> readVoltage; readCurrent; actualCurrent</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p></html>"));
+      }),Documentation(info="<html><p>A voltage ramp drives a 2 Ω load through a replaceable current sensor. A replaceable voltage sensor measures the load. <code>readVoltage</code> and <code>readCurrent</code> are measurement outputs; <code>actualCurrent</code> reads the load current independently.</p><p>Redeclare either sensor and compare its reported value with the unchanged circuit quantity.</p></html>"));
 end SensorCircuit;

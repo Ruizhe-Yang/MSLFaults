@@ -1,5 +1,5 @@
 within MSLFaults;
-package Mechanics "Mechanics"
+package Mechanics "Faultable mechanical components and sensors"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -15,4 +15,5 @@ package Mechanics "Mechanics"
         Line(points={{30.6531,-30.6531},{40.8708,-40.8708}}, color={64,64,64}, thickness=3, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Rotational and translational components with explicit fault parameters and standard mechanical flanges. Select the physical component or sensor interface before choosing a fault mode.</p></html>"));
 end Mechanics;

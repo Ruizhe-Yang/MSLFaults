@@ -1,37 +1,37 @@
 within MSLFaults.Fluid.Pipes;
-model FaultableDynamicPipe "DynamicPipe with an inline transparent fault pressure element"
-  replaceable package Medium=Modelica.Media.Water.StandardWater constrainedby Modelica.Media.Interfaces.PartialMedium "工作介质";
+model FaultableDynamicPipe "Dynamic pipe with additional quadratic pressure loss"
+  replaceable package Medium=Modelica.Media.Water.StandardWater constrainedby Modelica.Media.Interfaces.PartialMedium "Working medium";
   Modelica.Fluid.Interfaces.FluidPort_a port_a(redeclare package Medium=Medium)
     annotation(Placement(transformation(extent={{-110,-10},{-90,10}})));
   Modelica.Fluid.Interfaces.FluidPort_b port_b(redeclare package Medium=Medium)
     annotation(Placement(transformation(extent={{90,-10},{110,10}})));
-  parameter Modelica.Units.SI.Length length=1 "Length";
-  parameter Modelica.Units.SI.Diameter diameter=0.1 "Diameter";
-  parameter Modelica.Units.SI.Height height_ab=0 "Height difference port_b - port_a";
-  parameter Modelica.Units.SI.Length roughness=2.5e-5 "Average roughness";
-  parameter Integer nParallel(min=1)=1 "Number of identical parallel pipes";
-  parameter Boolean allowFlowReversal=true;
-  parameter Integer nNodes(min=1)=2 "Number of discrete flow volumes";
-  parameter Boolean use_HeatTransfer=false;
+  parameter Modelica.Units.SI.Length length=1 "Pipe length";
+  parameter Modelica.Units.SI.Diameter diameter=0.1 "Pipe diameter";
+  parameter Modelica.Units.SI.Height height_ab=0 "Height of port_b relative to port_a";
+  parameter Modelica.Units.SI.Length roughness=2.5e-5 "Average inner-wall roughness";
+  parameter Integer nParallel(min=1)=1 "Number of parallel pipes; check forwarding in the selected pipe model";
+  parameter Boolean allowFlowReversal=true "Allow flow in either direction" ;
+  parameter Integer nNodes(min=1)=2 "Number of discrete pipe volumes";
+  parameter Boolean use_HeatTransfer=false "Expose the distributed heat ports" ;
   Modelica.Fluid.Interfaces.HeatPorts_a[nNodes] heatPorts if use_HeatTransfer
     annotation(Placement(transformation(extent={{-30,36},{32,52}})));
-  type FaultMode=enumeration(Normal "正常", RoughnessIncrease "粗糙度增加", Fouling "结垢", PartialBlockage "局部堵塞", CompleteBlockage "完全堵塞");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real blockageCoefficient(unit="Pa.s2/kg2")=1e8;
-  parameter Real completeBlockageCoefficient(unit="Pa.s2/kg2")=1e14;
-  Real K_fault(unit="Pa.s2/kg2");
+  type FaultMode=enumeration(Normal "Nominal behaviour", RoughnessIncrease "Additional pressure loss at a reduced coefficient", Fouling "Additional pressure loss", PartialBlockage "Increased additional pressure loss", CompleteBlockage "Large finite additional pressure loss");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mechanism" ;
+  parameter Real severity(min=0,max=1)=1 "Maximum realised fault level" ;
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault window" ;
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal fault window" ;
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp" ;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope" ;
+  Real startActivation(min=0,max=1) "Fault envelope normalised by severity" ;
+  Real endActivation(min=0,max=1) "Indicator that activation or recovery is present" ;
+  parameter Real blockageCoefficient(unit="Pa.s2/kg2")=1e8 "Reference coefficient of additional quadratic pressure loss" ;
+  parameter Real completeBlockageCoefficient(unit="Pa.s2/kg2")=1e14 "Finite pressure-loss coefficient for complete blockage" ;
+  Real K_fault(unit="Pa.s2/kg2") "Effective coefficient of additional quadratic pressure loss" ;
   model InlineFaultPressureLoss "Local, topology-invariant fault pressure loss"
     replaceable package Medium=Modelica.Media.Interfaces.PartialMedium;
     Modelica.Fluid.Interfaces.FluidPort_a port_a(redeclare package Medium=Medium);
     Modelica.Fluid.Interfaces.FluidPort_b port_b(redeclare package Medium=Medium);
-    Modelica.Blocks.Interfaces.RealInput K(unit="Pa.s2/kg2");
+    Modelica.Blocks.Interfaces.RealInput K(unit="Pa.s2/kg2") "Coefficient of quadratic pressure loss" ;
   equation
     port_a.m_flow+port_b.m_flow=0;
     port_a.p-port_b.p=K*port_a.m_flow*abs(port_a.m_flow);
@@ -49,14 +49,14 @@ model FaultableDynamicPipe "DynamicPipe with an inline transparent fault pressur
     nNodes=nNodes,use_HeatTransfer=use_HeatTransfer,allowFlowReversal=allowFlowReversal);
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable the selected fault mechanism";
+  parameter Boolean useExternalTrigger=false "Use trigger to request activation instead of the internal time window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested fault activation";
+  output Real effectLevel(min=0,max=1) "Realised severity-scaled fault envelope";
+  output Integer activationCount "Number of rising fault activations";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -91,5 +91,5 @@ equation
         Line(points={{34,-40},{34,40}}, color={255,255,255}, thickness=0.65, pattern=LinePattern.Dash),
         Text(extent={{-24,-55},{24,-80}}, textString="n", textColor={64,64,64}, fontSize=0),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> DynamicPipe with an inline transparent fault pressure element</p><p><b>Interfaces</b> Modelica.Fluid.Interfaces.FluidPort_a port_a(redeclare package Medium=Medium); Modelica.Fluid.Interfaces.FluidPort_b port_b(redeclare package Medium=Medium); Modelica.Fluid.Interfaces.HeatPorts_a[nNodes] heatPorts if use_HeatTransfer; Modelica.Fluid.Interfaces.FluidPort_a port_a(redeclare package Medium=Medium); Modelica.Fluid.Interfaces.FluidPort_b port_b(redeclare package Medium=Medium); Modelica.Blocks.Interfaces.RealInput K(unit=\"Pa.s2/kg2\")</p><p><b>Parameters</b> replaceable package Medium=Modelica.Media.Water.StandardWater constrainedby Modelica.Media.Interfaces.PartialMedium \"工作介质\"; parameter Modelica.Units.SI.Length length=1 \"Length\"; parameter Modelica.Units.SI.Diameter diameter=0.1 \"Diameter\"; parameter Modelica.Units.SI.Height height_ab=0 \"Height difference port_b - port_a\"; parameter Modelica.Units.SI.Length roughness=2.5e-5 \"Average roughness\"; parameter Integer nParallel(min=1)=1 \"Number of identical parallel pipes\"; parameter Boolean allowFlowReversal=true; parameter Integer nNodes(min=1)=2 \"Number of discrete flow volumes\"; parameter Boolean use_HeatTransfer=false; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1</p><p><b>Behavior</b> DynamicPipe with an inline transparent fault pressure element</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.FluidValveDegradation\">MSLFaults.Examples.FluidValveDegradation</a></p><p><b>Purpose</b> Fault-enhanced DynamicPipe</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Fluid.Pipes.DynamicPipe</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.FluidValveDegradation\">MSLFaults.Examples.FluidValveDegradation</a></p><p>用法：将 FaultableDynamicPipe 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p><p>本模型保留 Modelica.Fluid 的 replaceable Medium、FluidPort 和 stream 连接语义。名义 MSL 组件作为内部正常物理模型；故障支路、控制量变换及激活方程全部在本文件可见，Normal 或 severity=0 时透明。</p></html>"));
+      }),Documentation(info="<html><p>Retain the MSL dynamic-pipe model and insert a loss relation <code>dp=K_fault*m_flow*abs(m_flow)</code> in series. The added element passes enthalpy, species and trace substances through in either flow direction and has zero pressure drop at zero effect.</p><p><code>RoughnessIncrease</code>, <code>Fouling</code> and <code>PartialBlockage</code> apply respectively 0.1, 1 and 10 times <code>blockageCoefficient</code>, scaled by the envelope. <code>CompleteBlockage</code> uses the finite <code>completeBlockageCoefficient</code>. These modes add pressure loss without changing the pipe geometry or roughness parameter.</p><p>Expose <code>heatPorts[nNodes]</code> with <code>use_HeatTransfer=true</code>. The declared <code>nParallel</code> parameter is not passed to the contained dynamic pipe.</p><p>The selected fault follows the reversible activation envelope. Read <code>effectLevel</code> during recovery as well as <code>active</code>. Nominal counterpart: <code>Modelica.Fluid.Pipes.DynamicPipe</code>.</p></html>"));
 end FaultableDynamicPipe;

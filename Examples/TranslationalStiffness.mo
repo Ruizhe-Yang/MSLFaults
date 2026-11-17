@@ -1,5 +1,5 @@
 within MSLFaults.Examples;
-model TranslationalStiffness "Compare two linear second-order stiffness responses and independent mass and damping faults"
+model TranslationalStiffness "Compare stiffness, mass and damping changes"
   extends Modelica.Icons.Example;
   MSLFaults.Utilities.Internal.TranslationalDrive native annotation(Placement(transformation(origin={-245,59},extent={{-25,-25},{25,25}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput nativePosition annotation(Placement(transformation(origin={-188,11},extent={{-7,-7},{7,7}},rotation=0)));
@@ -19,5 +19,5 @@ equation
   connect(dampingFault.position,dampingFaultPosition) annotation(Line(points={{224,59},{256,59},{256,11}},color={0,0,127}));
   annotation(experiment(StartTime=0,StopTime=10,Interval=0.01,Tolerance=1e-6),
     Diagram(coordinateSystem(extent={{-360,-240},{360,240}},preserveAspectRatio=true),graphics={Text(extent={{-280.5,182},{284.5,168}},textString="Same initial position and velocity, same 1 N force",textColor={34,61,73})}),
-    Documentation(info="<html><p><b>Purpose</b> Compare two linear second-order stiffness responses and independent mass and damping faults</p><p><b>Interfaces</b> Instances and connections are shown in the Diagram layer.</p><p><b>Parameters</b> Default values are shown in the component modifiers.</p><p><b>Behavior</b> The final displacement is approximately 0.01 m at 100 N/m and 0.02 m at 50 N/m. The transient follows the declared second-order system.</p><p><b>Initialization</b> All initial conditions are explicit in the source and component modifiers.</p><p><b>Activation and recovery</b> The given time windows follow the simulation time axis.</p><p><b>Limitations</b> This demonstration uses the declared inputs, initial conditions and idealized components.</p><p><b>Observables</b> Position in each branch, spring force and energy, damper loss power and mass momentum.</p></html>"));
+    Documentation(info="<html><p>Compare five force-driven mass-spring-damper assemblies. The native and normal paths use a 1 N force and 100 N/m stiffness. The stiffness fault uses 50 N/m, while the other paths alter only mass or damping.</p><p>Plot the five position outputs; compare settling position separately from oscillation and decay. Use the stored experiment settings.</p></html>"));
 end TranslationalStiffness;

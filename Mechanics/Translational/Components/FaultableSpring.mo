@@ -1,38 +1,38 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableSpring "Linear 1D translational spring"
+model FaultableSpring "Translational spring with stiffness, preload and latched fracture effects"
   extends Modelica.Mechanics.Translational.Interfaces.PartialCompliant;
   parameter Modelica.Units.SI.TranslationalSpringConstant c(final min=0, start=1)
     "Spring constant";
   parameter Modelica.Units.SI.Distance s_rel0=0 "Unstretched spring length";
 
-  type FaultMode=enumeration(Normal "正常", StiffnessLoss "刚度下降", StiffnessIncrease "刚度增加", Broken "断裂", PreloadShift "自由长度漂移", Sticking "卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c;
-  parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01;
-  parameter Modelica.Units.SI.TranslationalSpringConstant cStuck=1e12;
-  Modelica.Units.SI.TranslationalSpringConstant c_effective;
-  Modelica.Units.SI.Position s_rel0_effective;
+  type FaultMode=enumeration(Normal "Nominal component relation", StiffnessLoss "Reduced stiffness", StiffnessIncrease "Configured stiffness increase", Broken "Latched fracture effect", PreloadShift "Changed unstretched coordinate", Sticking "Increased finite spring stiffness");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c "Stiffness target for the selected fault law";
+  parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01 "Unstretched length or contact coordinate at full shift effect";
+  parameter Modelica.Units.SI.TranslationalSpringConstant cStuck=1e12 "Finite stiffness at full sticking effect";
+  Modelica.Units.SI.TranslationalSpringConstant c_effective "Stiffness used by the constitutive relation";
+  Modelica.Units.SI.Position s_rel0_effective "Effective unstretched length or contact threshold";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
-  Modelica.Units.SI.Distance deflection;
-  Modelica.Units.SI.Energy storedEnergy;
-  Modelica.Units.SI.Power lossPower,parameterPower;
-  parameter Real brokenStiffnessFraction(min=0,max=1)=1e-6 "Residual fraction after full fracture";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
+  Modelica.Units.SI.Distance deflection "Relative coordinate measured from its effective unstretched value";
+  Modelica.Units.SI.Energy storedEnergy "Stored mechanical energy from the effective parameters";
+  Modelica.Units.SI.Power lossPower "Declared dissipation, zero for the elastic element",parameterPower "Energy-rate contribution associated with prescribed parameter changes";
+  parameter Real brokenStiffnessFraction(min=0,max=1)=1e-6 "Residual stiffness fraction at full fracture effect";
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=faultMode==FaultMode.Broken,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
@@ -59,15 +59,7 @@ equation
   parameterPower=der(storedEnergy)-f*der(s_rel);
   assert(c_effective>=0,"Stiffness must remain nonnegative.");
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Linear 1D translational spring</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.TranslationalSpringConstant c(final min=0, start=1); parameter Modelica.Units.SI.Distance s_rel0=0 \"Unstretched spring length\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.TranslationalSpringConstant cFault=0.5*c; parameter Modelica.Units.SI.Position sRel0Fault=s_rel0+0.01; parameter Modelica.Units.SI.TranslationalSpringConstant cStuck=1e12; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> Linear 1D translational spring</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced Spring</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Broken latches on first activation. Stored energy changes with stiffness or preload. Parameter work accounts for that exchange and is not routed as heat.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery. Broken latch until a new simulation. faultEndTime does not repair a latched fault.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.Spring</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableSpring 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-A <em>linear 1D translational spring</em>. The component can be connected either
-between two sliding masses, or between
-a sliding mass and the housing (model Fixed), to describe
-a coupling of the sliding mass with the housing via a spring.
-</p>
-
-</html>"),
+    Documentation(info="<html><p>StiffnessLoss and StiffnessIncrease share cFault. PreloadShift changes the unstretched length; Sticking raises stiffness towards cStuck. Broken latches and retains c*brokenStiffnessFraction at full severity. parameterPower is the stored-energy rate minus mechanical port power.</p><p>Set c and s_rel0, configure cFault or sRel0Fault, and inspect f, storedEnergy and parameterPower.</p><p>Set cFault&gt;c to obtain increased stiffness: the default is 0.5*c. The parameter-power residual is not dissipative heat.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.Spring</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{
             100,100}}),
       graphics={

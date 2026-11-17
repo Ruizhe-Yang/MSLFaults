@@ -1,5 +1,5 @@
 within MSLFaults;
-package Utilities "Utilities"
+package Utilities "Activation and example support"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,4 +8,5 @@ package Utilities "Utilities"
         Ellipse(extent={{-51.85,-52.7},{-29.75,-30.6}}, lineColor={64,64,64}, fillColor={255,255,255}, fillPattern=FillPattern.None, pattern=LinePattern.Solid, lineThickness=0.7),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Shared activation logic and the internal assemblies used by the examples.</p></html>"));
 end Utilities;

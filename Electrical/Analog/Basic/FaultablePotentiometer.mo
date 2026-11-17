@@ -1,33 +1,33 @@
 within MSLFaults.Electrical.Analog.Basic;
-model FaultablePotentiometer "Adjustable resistor"
+model FaultablePotentiometer "Potentiometer with track and wiper faults"
   import SI = Modelica.Units.SI;
   parameter SI.Resistance R(start=1)
     "Resistance at temperature T_ref";
   parameter SI.Temperature T_ref=293.15 "Reference temperature";
   parameter SI.LinearTemperatureCoefficient alpha=0
-    "Temperature coefficient of resistance (R_actual = R*(1 + alpha*(T_heatPort - T_ref))";
+    "Linear resistance temperature coefficient";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=T_ref);
-  parameter Boolean useRinput=false "Use input for 0<r<1 (else constant)"
+  parameter Boolean useRinput=false "Use input r for the wiper position"
     annotation (
     Evaluate=true,
     HideResult=true,
     Dialog(group="potentiometer"));
   parameter Real rConstant(
     final min=0,
-    final max=1) = 0.5 "Contact between n (r=0) and p (r=1)"
+    final max=1) = 0.5 "Fixed relative wiper position, from n at zero to p at one"
     annotation (Dialog(group="potentiometer", enable=not useRinput));
   SI.Resistance Rp
     "Actual resistance between pin_p and contact";
   SI.Resistance Rn
     "Actual resistance between contact and pin_n";
   Modelica.Electrical.Analog.Interfaces.PositivePin pin_p
-    annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
-  Modelica.Electrical.Analog.Interfaces.PositivePin contact annotation (
+    "Positive electrical terminal" annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
+  Modelica.Electrical.Analog.Interfaces.PositivePin contact "Wiper terminal" annotation (
       Placement(transformation(extent={{90,-110},{110,-90}}),
         iconTransformation(extent={{90,-110},{110,-90}})));
   Modelica.Electrical.Analog.Interfaces.NegativePin pin_n
-    annotation (Placement(transformation(extent={{90,-10},{110,10}})));
-  Modelica.Blocks.Interfaces.RealInput r if useRinput annotation (Placement(
+    "Negative electrical terminal" annotation (Placement(transformation(extent={{90,-10},{110,10}})));
+  Modelica.Blocks.Interfaces.RealInput r if useRinput "Commanded relative wiper position" annotation (Placement(
         transformation(
         extent={{-20,-20},{20,20}},
         rotation=90,
@@ -35,45 +35,45 @@ model FaultablePotentiometer "Adjustable resistor"
         extent={{-20,-20},{20,20}},
         rotation=90,
         origin={-100,-120})));
-  type FaultMode = enumeration(Normal "正常", TotalResistanceDrift "总阻值漂移", WiperBias "滑片偏置", WiperStuck "滑片卡死", ContactOpen "滑片接触开路");
-  parameter FaultMode faultMode=FaultMode.Normal "故障模式";
-  parameter Real severity(min=0,max=1)=1 "故障严重度";
-  parameter SI.Time faultStartTime=1 "故障开始时刻";
-  parameter SI.Time faultEndTime=3 "故障结束时刻";
-  parameter SI.Time transitionTime(min=0)=0.05 "故障渐变时间";
-  Real faultActivation(min=0,max=1) "含严重度的故障激活量";
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter SI.Resistance R_fault=2*R "总阻值故障目标";
-  parameter Real wiperBias=0.1 "滑片偏置";
-  parameter Real wiperStuckValue(min=0,max=1)=0.5 "滑片卡死位置";
-  parameter SI.Resistance R_contactOpen=1e10 "接触开路有限大电阻";
-  SI.Resistance R_effective "故障后的总电阻";
-  Real r_effective "故障后的滑片位置";
-  SI.Resistance R_contact "故障后的滑片接触电阻";
+  type FaultMode = enumeration(Normal "Nominal behaviour", TotalResistanceDrift "Total track-resistance change", WiperBias "Wiper-position offset", WiperStuck "Prescribed wiper position", ContactOpen "Finite contact-resistance increase");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter SI.Resistance R_fault=2*R "Total track resistance at full effect";
+  parameter Real wiperBias=0.1 "Wiper-position offset at full effect";
+  parameter Real wiperStuckValue(min=0,max=1)=0.5 "Prescribed wiper position at full effect";
+  parameter SI.Resistance R_contactOpen=1e10 "Finite resistance added to each contact branch";
+  SI.Resistance R_effective "Effective total track resistance";
+  Real r_effective "Effective relative wiper position";
+  SI.Resistance R_contact "Added resistance in each terminal-to-contact branch";
 protected
   Modelica.Blocks.Sources.Constant rConst(final k=rConstant) if not useRinput
-    annotation (Placement(transformation(
+    "Fixed relative wiper-position source" annotation (Placement(transformation(
         extent={{-10,-10},{10,10}},
         rotation=270,
         origin={-90,-50})));
   Modelica.Blocks.Interfaces.RealInput rInt
-    annotation (Placement(transformation(extent={{-84,-84},{-76,-76}})));
+    "Internal relative wiper-position command" annotation (Placement(transformation(extent={{-84,-84},{-76,-76}})));
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -115,8 +115,5 @@ equation
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> Adjustable resistor</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=T_ref); Modelica.Electrical.Analog.Interfaces.PositivePin pin_p; Modelica.Electrical.Analog.Interfaces.PositivePin contact annotation (; Modelica.Electrical.Analog.Interfaces.NegativePin pin_n; Modelica.Blocks.Interfaces.RealInput r if useRinput annotation (Placement(</p><p><b>Parameters</b> parameter SI.Resistance R(start=1); parameter SI.Temperature T_ref=293.15 \"Reference temperature\"; parameter SI.LinearTemperatureCoefficient alpha=0; parameter Boolean useRinput=false \"Use input for 0&lt;r&lt;1 (else constant)\"; parameter Real rConstant(; parameter FaultMode faultMode=FaultMode.Normal \"故障模式\"; parameter Real severity(min=0,max=1)=1 \"故障严重度\"; parameter SI.Time faultStartTime=1 \"故障开始时刻\"; parameter SI.Time faultEndTime=3 \"故障结束时刻\"; parameter SI.Time transitionTime(min=0)=0.05 \"故障渐变时间\"; parameter SI.Resistance R_fault=2*R \"总阻值故障目标\"; parameter Real wiperBias=0.1 \"滑片偏置\"</p><p><b>Behavior</b> Adjustable resistor</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced Potentiometer</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Basic.Potentiometer</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultablePotentiometer 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-                       <p>This models a potentiometer where the sliding contact is placed between pin_n (r = 0) and pin_p (r = 1), dependent on either the parameter rConstant or the signal input r.</p>
-                       <p>The total resistance R is temperature dependent.</p>
-                       </html>"));
+    Documentation(info="<html><p>Split the temperature-corrected track resistance according to rConstant or input r. Faults modify total resistance, bias the wiper, interpolate towards wiperStuckValue, or add R_contactOpen to both terminal-to-contact equations.</p><p>Connect pin_p, pin_n and contact; select useRinput for a commanded wiper and inspect r_effective, Rp, Rn and LossPower.</p><p>ContactOpen is a finite resistance added to both track branches. WiperStuck uses a configured position rather than a captured position.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Basic.Potentiometer</code>.</p></html>"));
 end FaultablePotentiometer;

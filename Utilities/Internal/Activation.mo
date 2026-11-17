@@ -1,24 +1,24 @@
 within MSLFaults.Utilities.Internal;
-block Activation "Reversible ramp and optional permanent activation latch"
-parameter Boolean enabled=true;
-  parameter Boolean permanent=false;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time startTime=1;
-  parameter Modelica.Units.SI.Time endTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Boolean useExternalTrigger=false;
-  Modelica.Blocks.Interfaces.BooleanInput externalTrigger annotation(Placement(transformation(origin={-100,0},extent={{-10,-10},{10,10}}),iconTransformation(origin={-100,0},extent={{-10,-10},{10,10}})));
-  output Boolean active;
-  output Modelica.Units.SI.Time elapsedActiveTime;
-  output Real effectLevel(min=0,max=1);
-  output Integer activationCount(start=0,fixed=true);
+block Activation "Severity-scaled activation with reversible ramps and optional latching"
+parameter Boolean enabled=true "Enable activation requests";
+  parameter Boolean permanent=false "Latch the first accepted request";
+  parameter Real severity(min=0,max=1)=1 "Maximum activation-envelope level";
+  parameter Modelica.Units.SI.Time startTime=1 "Inclusive internal activation start";
+  parameter Modelica.Units.SI.Time endTime=3 "Exclusive internal activation end";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Time for a full unit-level transition";
+  parameter Boolean useExternalTrigger=false "Use the external trigger instead of the internal fault window";
+  Modelica.Blocks.Interfaces.BooleanInput externalTrigger  "External activation request" annotation(Placement(transformation(origin={-100,0},extent={{-10,-10},{10,10}}),iconTransformation(origin={-100,0},extent={{-10,-10},{10,10}})));
+  output Boolean active "Requested or latched fault state before transition shaping";
+  output Modelica.Units.SI.Time elapsedActiveTime "Current or most recently completed activation duration";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount(start=0,fixed=true) "Number of activation starts, including initial activation";
 protected
-  Boolean request;
-  discrete Boolean latched(start=false,fixed=true);
-  discrete Real fromLevel(start=0,fixed=true);
-  discrete Modelica.Units.SI.Time edgeTime(start=0,fixed=true);
-  Real level;
-  discrete Modelica.Units.SI.Time endedDuration(start=0,fixed=true);
+  Boolean request "Enabled activation request before latching";
+  discrete Boolean latched(start=false,fixed=true) "Permanent activation state";
+  discrete Real fromLevel(start=0,fixed=true) "Unit level at the most recent state change";
+  discrete Modelica.Units.SI.Time edgeTime(start=0,fixed=true) "Time of the most recent activation state change";
+  Real level "Unit activation level before severity scaling";
+  discrete Modelica.Units.SI.Time endedDuration(start=0,fixed=true) "Duration retained after deactivation";
 initial equation
   assert(severity>=0 and severity<=1,"Severity outside [0,1].");
   assert(endTime>=startTime,"End time precedes start time.");
@@ -48,5 +48,5 @@ equation
         Text(extent={{-49,-56},{49,-78}}, textString="level", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> Reversible ramp and optional permanent activation latch.</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput externalTrigger; output Boolean active; output Real effectLevel(min=0,max=1); output Integer activationCount(start=0,fixed=true)</p><p><b>Parameters</b> parameter Boolean enabled=true; parameter Boolean permanent=false; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time startTime=1; parameter Modelica.Units.SI.Time endTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Boolean useExternalTrigger=false</p><p><b>Behavior</b> The target is the current trigger state. A ramp reversal continues from the current level. Permanent mode latches the first active request.</p><p><b>Initialization</b> An initial true trigger counts as the first activation. Positive-duration ramps begin at zero.</p><p><b>Activation and recovery</b> Not applicable.</p><p><b>Limitations</b> Zero-width internal windows are empty. An external trigger replaces the internal window.</p><p><b>Observables</b> active, effectLevel, activationCount</p></html>"));
+    Documentation(info="<html><p>Generate a request when <code>enabled</code> is true, <code>severity&gt;0</code> and the internal half-open interval <code>[startTime,endTime)</code> or selected <code>externalTrigger</code> is active. <code>permanent=true</code> latches the first accepted request. <code>active</code> reports this Boolean state.</p><p>A positive <code>transitionTime</code> gives a linear unit-level rise or fall, scaled by <code>severity</code>; reversals continue from the current level. Initial ramps begin at zero. A zero transition changes the level immediately. An initially active request increments <code>activationCount</code>.</p><p><code>elapsedActiveTime</code> is the duration since the latest activation while active and retains the completed active duration after deactivation. It resets on the next activation. The recovery ramp can continue after <code>active</code> becomes false.</p></html>"));
 end Activation;

@@ -1,5 +1,5 @@
 within MSLFaults.Thermal.FluidHeatFlow.Components;
-model FaultableValve "Simple valve"
+model FaultableValve "Simplified valve with opening and leakage faults"
   extends Modelica.Thermal.FluidHeatFlow.BaseClasses.TwoPort(m(start=0), final tapT=1);
 
   parameter Boolean LinearCharacteristic(start=true)
@@ -21,20 +21,20 @@ model FaultableValve "Simple valve"
     annotation(Dialog(group="Standard characteristic"));
   parameter Real frictionLoss(min=0, max=1, start=0)
     "Part of friction losses fed to medium";
-  type FaultMode=enumeration(Normal "正常", StuckClosed "阀门卡闭", StuckOpen "阀门卡开", OpeningBias "开度偏置", LeakageIncrease "泄漏增加", Blockage "堵塞");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real stuckOpening(min=0)=0;
-  parameter Real openingBias=0.1;
-  parameter Real leakageFault(min=Modelica.Constants.small,max=1)=0.1;
-  Real y_effective;
-  Real kv0_effective;
+  type FaultMode=enumeration(Normal "Nominal behaviour", StuckClosed "Blend towards the closed-command target", StuckOpen "Blend towards the open-command target", OpeningBias "Additive opening-command bias", LeakageIncrease "Increase in the closed-flow fraction", Blockage "Reduction of the opening command");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mechanism" ;
+  parameter Real severity(min=0,max=1)=1 "Maximum realised fault level" ;
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault window" ;
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal fault window" ;
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp" ;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope" ;
+  Real startActivation(min=0,max=1) "Fault envelope normalised by severity" ;
+  Real endActivation(min=0,max=1) "Indicator that activation or recovery is present" ;
+  parameter Real stuckOpening(min=0)=0 "Prescribed opening target for the closed-stuck mode" ;
+  parameter Real openingBias=0.1 "Full-effect additive opening bias" ;
+  parameter Real leakageFault(min=Modelica.Constants.small,max=1)=0.1 "Full-effect closed-flow fraction" ;
+  Real y_effective "Fault-adjusted opening command" ;
+  Real kv0_effective "Fault-adjusted closed-flow fraction" ;
 protected
   constant Modelica.Units.SI.VolumeFlowRate unitVolumeFlowRate = 1;
   constant Real small = Modelica.Constants.small;
@@ -49,14 +49,14 @@ public
         origin={0,100})));
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable the selected fault mechanism";
+  parameter Boolean useExternalTrigger=false "Use trigger to request activation instead of the internal time window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested fault activation";
+  output Real effectLevel(min=0,max=1) "Realised severity-scaled fault envelope";
+  output Integer activationCount "Number of rising fault activations";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -84,34 +84,11 @@ equation
   Kv/Kv1=if LinearCharacteristic then (kv0_effective+(1-kv0_effective)*yLim/y1) else kv0_effective*exp(Modelica.Math.log(1/kv0_effective)*yLim/y1);
   // pressure drop under real conditions
   dp/dp0 = medium.rho/rho0*(V_flow/Kv)*abs(V_flow/Kv);
-  // no energy exchange with medium
+  // Fraction of hydraulic dissipation supplied to the medium
   Q_flow = frictionLoss*V_flow*dp;
 
 
-annotation (Documentation(info="<html><p><b>Purpose</b> Simple valve</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Boolean LinearCharacteristic(start=true); parameter Real y1(min=small, start=1) \"Max. valve opening\"; parameter Modelica.Units.SI.VolumeFlowRate Kv1(min=small, start=1); parameter Real kv0(min=small,max=1-small, start=0.01); parameter Modelica.Units.SI.Pressure dp0(start=1) \"Standard pressure drop\"; parameter Modelica.Units.SI.Density rho0(start=10); parameter Real frictionLoss(min=0, max=1, start=0); parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05</p><p><b>Behavior</b> Simple valve</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p><b>Purpose</b> Fault-enhanced Valve</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Thermal.FluidHeatFlow.Components.Valve</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p>用法：将 FaultableValve 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>Simple controlled valve.</p>
-<p>
-Standard characteristic Kv=<em>f </em>(y) is given at standard conditions (dp0, rho0),
-</p>
-<ul>
-<li>either linear :<code> Kv/Kv1 = Kv0/Kv1 + (1-Kv0/Kv1) * y/Y1</code></li>
-<li>or exponential:<code> Kv/Kv1 = Kv0/Kv1 * exp[log(Kv1/Kv0) * y/Y1]</code></li>
-</ul>
-<p>
-where:
-</p>
-<ul>
-<li><code>Kv0 ... min. flow @ y = 0</code></li>
-<li><code>Y1 .... max. valve opening</code></li>
-<li><code>Kv1 ... max. flow @ y = Y1</code></li>
-</ul>
-<p>
-Flow resistance under real conditions is calculated by
-</p>
-<blockquote><pre>
-V_flow**2 * rho / dp = Kv(y)**2 * rho0 / dp0
-</pre></blockquote>
-</html>"),
+annotation (Documentation(info="<html><p>Use the simplified linear or exponential valve characteristic with a non-zero closed-flow fraction <code>kv0</code>. The pressure drop depends on the signed quadratic volume-flow relation and medium density.</p><p>Opening faults blend towards <code>stuckOpening</code>, <code>y1</code> or a biased command; <code>Blockage</code> reduces the command towards zero. <code>LeakageIncrease</code> changes <code>kv0</code> towards <code>leakageFault</code>. The effective command is limited to <code>[0,y1]</code>, and the closed characteristic retains its leakage fraction. <code>frictionLoss</code> specifies the dissipated hydraulic power supplied to the medium.</p><p>The selected fault follows the reversible activation envelope. Read <code>effectLevel</code> during recovery as well as <code>active</code>. Nominal counterpart: <code>Modelica.Thermal.FluidHeatFlow.Components.Valve</code>.</p></html>"),
   Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

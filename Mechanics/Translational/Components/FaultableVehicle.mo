@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableVehicle "Simple vehicle model"
+model FaultableVehicle "Longitudinal vehicle model with additional fault forces"
   parameter Modelica.Units.SI.Mass m "Total mass of vehicle";
   parameter Modelica.Units.SI.Acceleration g=Modelica.Constants.g_n "Constant gravity acceleration";
   parameter Modelica.Units.SI.Inertia J "Total rotational inertia of drive train";
@@ -18,7 +18,7 @@ model FaultableVehicle "Simple vehicle model"
     annotation(Dialog(tab="Driving resistances", group="Rolling resistance"));
   parameter Real CrConstant=0.015 "Constant rolling resistance coefficient"
     annotation(Dialog(tab="Driving resistances", group="Rolling resistance", enable=not useCrInput));
-  parameter Modelica.Units.SI.Velocity vReg=1e-3 "Velocity for regularization around 0"
+  parameter Modelica.Units.SI.Velocity vReg=1e-3 "Velocity for regularisation around 0"
     annotation(Dialog(tab="Driving resistances", group="Rolling resistance"));
   parameter Boolean useInclinationInput=false "Enable signal input for inclination"
     annotation(Dialog(tab="Driving resistances", group="Inclination resistance"));
@@ -96,20 +96,20 @@ public
         extent={{-10,-10},{10,10}},
         origin={-10,30})));
 
-  type FaultMode=enumeration(Normal "正常", MassLoadIncrease "附加载荷", DragIncrease "气动阻力增加", RollingResistanceIncrease "滚阻增加", DrivetrainLock "传动锁死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Mass addedMass=0.2*m "Additional inertial load at severity one";
-  parameter Real addedDragArea=0.2*Cd*A "Additional Cd*A at severity one";
-  parameter Modelica.Units.SI.Force addedRollingForce=0.2*CrConstant*m*g "Additional rolling force at severity one";
-  parameter Modelica.Units.SI.TranslationalDampingConstant drivetrainLockDamping=1e10;
-  Modelica.Units.SI.Velocity relativeAirSpeed;
+  type FaultMode=enumeration(Normal "Nominal component relation", MassLoadIncrease "Additional acceleration-proportional load", DragIncrease "Additional aerodynamic drag", RollingResistanceIncrease "Additional rolling resistance", DrivetrainLock "Finite viscous vehicle resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.Mass addedMass=0.2*m "Additional acceleration-proportional inertial load at full effect";
+  parameter Real addedDragArea=0.2*Cd*A "Additional drag coefficient times area at full effect";
+  parameter Modelica.Units.SI.Force addedRollingForce=0.2*CrConstant*m*g "Magnitude of additional rolling resistance at full effect";
+  parameter Modelica.Units.SI.TranslationalDampingConstant drivetrainLockDamping=1e10 "Finite damping for the drivetrain-lock approximation";
+  Modelica.Units.SI.Velocity relativeAirSpeed "Vehicle speed relative to the prescribed air motion";
   Modelica.Mechanics.Translational.Sources.Force faultForce(useSupport=false);
   Modelica.Blocks.Sources.RealExpression faultForceCommand(y=
     if faultMode==FaultMode.MassLoadIncrease then -faultActivation*addedMass*a
@@ -119,14 +119,14 @@ public
 
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -200,86 +200,5 @@ equation
         Ellipse(extent={{-44,-40},{-32,-52}}, lineColor={0,127,0}, fillPattern=FillPattern.Solid, fillColor={255,255,255}, lineThickness=0.5),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(info="<html><p><b>Purpose</b> Simple vehicle model</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Modelica.Units.SI.Mass m \"Total mass of vehicle\"; parameter Modelica.Units.SI.Acceleration g=Modelica.Constants.g_n \"Constant gravity acceleration\"; parameter Modelica.Units.SI.Inertia J \"Total rotational inertia of drive train\"; parameter Modelica.Units.SI.Length R \"Wheel radius\"; parameter Modelica.Units.SI.Area A(start=1) \"Cross section of vehicle\"; parameter Real Cd(start=0.5) \"Drag resistance coefficient\"; parameter Modelica.Units.SI.Density rho=1.2 \"Density of air\"; parameter Boolean useWindInput=false \"Enable signal input for wind velocity\"; parameter Modelica.Units.SI.Velocity vWindConstant=0 \"Constant wind velocity\"; parameter Boolean useCrInput=false \"Enable signal input for Cr\"; parameter Real CrConstant=0.015 \"Constant rolling resistance coefficient\"; parameter Modelica.Units.SI.Velocity vReg=1e-3 \"Velocity for regularization around 0\"</p><p><b>Behavior</b> Simple vehicle model</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced Vehicle</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.Vehicle</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableVehicle 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This is a simple model of a&nbsp;ground vehicle, comprising the mass, the aerodynamic drag, the rolling resistance and
-the inclination resistance (caused by the road grade).
-For all particular resistances, significant variables can be either given by a&nbsp;parameter or input by a&nbsp;time-variable signal.
-</p>
-<p>
-The vehicle can be driven at the rotational flange <code>flangeR</code>, e.g. by an electric motor and a&nbsp;gearbox.
-It is possible to use the vehicle as a&nbsp;passive trailer, leaving the rotational flange <code>flangeR</code> unconnected.
-</p>
-<p>
-At the translational flange <code>flangeT</code> the vehicle can be coupled with another vehicle,
-e.g. as a&nbsp;trailer or to pull a&nbsp;trailer.
-It is possible to leave the translational flange <code>flangeT</code> unconnected.
-</p>
-<p>
-The velocity&nbsp;<code>v</code> and the driven distance&nbsp;<code>s</code> of the vehicle are provided as variables;
-the vehicle can be initialized using these variables.
-</p>
-
-<h4>Mass and inertia</h4>
-<p>
-Both the translational vehicle mass and the rotational inertias (e.g. the wheels)
-are accelerated when the vehicle is accelerated.
-This nature is usually put into account for fundamental vehicle analyses
-done either in the rotational or translational domain, e.g. when analysing
-vehicle&apos;s driveline.
-Then, the vehicle mass&nbsp;<code>m</code> can be expressed as an additional
-equivalent inertia <code>J_eq&nbsp;=&nbsp;m&nbsp;*&nbsp;R<sup>2</sup></code> or
-vice versa rotational inertia&nbsp;<code>J</code> as an additional
-equivalent mass <code>m_eq&nbsp;=&nbsp;J/R<sup>2</sup></code>,
-where&nbsp;<code>R</code> is the wheel radius.
-Since this model introduces rolling resistance and inclination resistance as well
-where just the vehicle mass plays a&nbsp;role,
-the approach of equivalent mass/inertia would lead to incorrect simulation results
-and shall therefore not be applied here.
-</p>
-
-<h4>Drag resistance</h4>
-<blockquote>
-<pre>
-fDrag = Cd*rho*A*(v - vWind)^2/2
-</pre>
-</blockquote>
-<p>
-Wind velocity is measured in the same direction as velocity of <code>flangeT</code>.
-Wind velocity is either constant or prescribed by the input <code>vWind</code>.
-</p>
-
-<h4>Rolling resistance</h4>
-<blockquote>
-<pre>
-fRoll = Cr*m*g*cos(alpha)
-</pre>
-</blockquote>
-<p>
-Rolling resistance coefficient&nbsp;<var>Cr</var> is either constant
-or prescribed by the input <code>cr</code>.
-Rolling resistance has a&nbsp;crossover from positive to negative velocity within <code>[-vReg,&nbsp;vReg]</code>.
-</p>
-<p>
-The inclination angle&nbsp;<var>&alpha;</var> is either constant or prescribed by
-the input <code>inclination</code> = tan(<var>&alpha;</var>).
-This corresponds to the road rise over running distance of 100&nbsp;m which,
-in general, is written as a&nbsp;percentage.
-For example for a&nbsp;road rising by 10&nbsp;m over 100&nbsp;m the
-grade&nbsp;=&nbsp;10&nbsp;% and, thus, the parameter
-<code>inclinationConstant&nbsp;=&nbsp;0.1</code>.
-Positive inclination means driving uphill, negative inclination means
-driving downhill, in case of positive vehicle velocity.
-</p>
-
-<h4>Inclination resistance</h4>
-<blockquote>
-<pre>
-fGrav = m*g*sin(alpha)
-</pre>
-</blockquote>
-<p>
-With the inclination angle&nbsp;<var>&alpha;</var> described above.
-</p>
-</html>"));
+    Documentation(info="<html><p>MassLoadIncrease applies an acceleration-proportional opposing force. DragIncrease uses relative air speed; RollingResistanceIncrease uses a tanh-regularised force; DrivetrainLock adds finite damping. The nominal mass, inertia and ideal wheel remain in the assembly.</p><p>Configure m, J, R, drag and rolling data; connect flangeR or flangeT and supply any enabled wind or slope inputs.</p><p>addedMass changes the inertial force only; nominal gravity and rolling-load terms remain based on m. The fault-force source has no explicit support or heat port.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.Vehicle</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"));
 end FaultableVehicle;

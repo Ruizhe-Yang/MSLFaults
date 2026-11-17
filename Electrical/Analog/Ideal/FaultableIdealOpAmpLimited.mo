@@ -1,6 +1,6 @@
 within MSLFaults.Electrical.Analog.Ideal;
 model FaultableIdealOpAmpLimited
-  "Fault-enhanced MSL 4.0.0 ideal operational amplifier with limits"
+  "Limited operational amplifier with offset, gain and output faults"
   import SI = Modelica.Units.SI;
   Modelica.Electrical.Analog.Interfaces.PositivePin in_p "Positive input"
     annotation (Placement(transformation(extent={{-110,-70},{-90,-50}}),iconTransformation(extent={{-110,-70},{-90,-50}})));
@@ -14,20 +14,20 @@ model FaultableIdealOpAmpLimited
     annotation (Placement(transformation(extent={{-10,-110},{10,-90}}),iconTransformation(extent={{-10,-110},{10,-90}})));
 
   type FaultMode=enumeration(
-    Normal "Nominal MSL behavior",
+    Normal "Nominal behaviour",
     InputOffsetDrift "Progressive equivalent input-offset drift",
     GainLoss "Finite differential gain",
     OutputLimitLoss "Reduced available output swing",
-    OutputStuck "Drive output toward a calibrated fixed failure value");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter SI.Voltage inputOffsetFault=0.01;
+    OutputStuck "Drive output towards a calibrated fixed failure value");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter SI.Voltage inputOffsetFault=0.01 "Equivalent differential input offset at full effect";
   parameter Real gainFault(min=Modelica.Constants.small)=10
-    "Finite V/V gain at severity one";
+    "Denominator of the inverse-slope term at full effect";
   parameter Real outputSwingFactor(min=0,max=1)=0.5
     "Remaining fraction of the rail-to-rail output span";
   parameter SI.Voltage outputStuckValue=0
@@ -35,34 +35,34 @@ model FaultableIdealOpAmpLimited
 
   SI.Voltage vin "Physical differential input";
   SI.Voltage vin_effective "Differential input including offset fault";
-  SI.Voltage VMax_effective;
-  SI.Voltage VMin_effective;
-  SI.Voltage out_internal;
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  Real inverseGain(min=0);
-  Real outputSpanFactor(min=0,max=1);
+  SI.Voltage VMax_effective "Effective upper output limit";
+  SI.Voltage VMin_effective "Effective lower output limit";
+  SI.Voltage out_internal "Output before the prescribed stuck-output transformation";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  Real inverseGain(min=0) "Inverse-slope term in the normalised amplifier characteristic";
+  Real outputSpanFactor(min=0,max=1) "Remaining fraction of the output-limit span";
 protected
   Real s(start=0,final unit="1");
-  constant SI.Voltage unitVoltage=1 annotation(HideResult=true);
+  constant SI.Voltage unitVoltage=1 "Voltage scale for the normalised characteristic" annotation(HideResult=true);
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -96,15 +96,7 @@ equation
 
 
   annotation(defaultComponentName="opAmp",
-    Documentation(info="<html><p><b>Purpose</b> FaultableIdealOpAmpLimited</p><p><b>Interfaces</b> Modelica.Electrical.Analog.Interfaces.PositivePin in_p \"Positive input\"; Modelica.Electrical.Analog.Interfaces.NegativePin in_n \"Negative input\"; Modelica.Electrical.Analog.Interfaces.PositivePin out \"Output\"; Modelica.Electrical.Analog.Interfaces.PositivePin VMax \"Positive output limit\"; Modelica.Electrical.Analog.Interfaces.NegativePin VMin \"Negative output limit\"</p><p><b>Parameters</b> parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter SI.Time faultStartTime=1; parameter SI.Time faultEndTime=3; parameter SI.Time transitionTime(min=0)=0.05; parameter SI.Time driftTime(min=Modelica.Constants.small)=1; parameter SI.Voltage inputOffsetFault=0.01; parameter Real gainFault(min=Modelica.Constants.small)=10; parameter Real outputSwingFactor(min=0,max=1)=0.5; parameter SI.Voltage outputStuckValue=0</p><p><b>Behavior</b> FaultableIdealOpAmpLimited</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced IdealOpAmpLimited</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Ideal.IdealOpAmpLimited</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableIdealOpAmpLimited 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p><p>The Normal equations are the MSL 4.0.0
-<code>IdealOpAmpLimited</code> equations. Input-offset drift shifts the differential
-input; gain loss introduces a continuously activated inverse finite gain;
-output-limit loss shrinks the available rail span; stuck mode drives the output
-toward the calibrated parameter <code>outputStuckValue</code>. Zero severity removes
-every added term exactly.</p>
-<p><b>Evidence:</b> OP484 total-ionizing-dose tests monitor input offset, output
-voltage, supply current and gain (NASA NTRS 20210018713). Input offset is level A,
-finite-gain mapping level B, and stuck/output-stage abstractions level C.</p></html>"),
+    Documentation(info="<html><p>Read output limits from VMax and VMin without drawing current from them. InputOffsetDrift uses driftTime; GainLoss adds inverseGain to the internal characteristic. OutputLimitLoss contracts the rail span about its midpoint, and OutputStuck interpolates towards outputStuckValue.</p><p>Connect differential inputs, output, both limit pins and a feedback circuit; inspect vin_effective, out_internal and out.v.</p><p>gainFault is the inverse-slope parameter of the normalised characteristic; the dimensional small-signal output/input slope also depends on rail span. OutputStuck is applied after limiting and can lie outside the rails.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Ideal.IdealOpAmpLimited</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{60,0},{90,0}}, color={0,0,255}, thickness=0.5),

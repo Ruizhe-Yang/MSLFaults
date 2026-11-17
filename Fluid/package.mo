@@ -1,5 +1,5 @@
 within MSLFaults;
-package Fluid "Fluid"
+package Fluid "Fluid components with configurable faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,5 +8,5 @@ package Fluid "Fluid"
         Line(points={{-66.3,0},{-48.45,0}}, color={0,127,255}, thickness=0.75, pattern=LinePattern.Solid),
         Line(points={{48.45,0},{66.3,0}}, color={0,127,255}, thickness=0.75, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Pipes, pumps, valves and sensors for <code>Modelica.Fluid</code> networks. Redeclare <code>Medium</code> consistently and provide the system and boundary conditions required by the connected components.</p></html>"));
 end Fluid;

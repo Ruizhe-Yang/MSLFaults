@@ -1,67 +1,67 @@
 within MSLFaults.Electrical.Analog.Sensors;
 model FaultableVoltageSensor
-  "Non-invasive voltage sensor with evidence-mapped signal faults"
+  "Ideal voltage sensor with calibration, drift and hold faults"
   import SI = Modelica.Units.SI;
   extends Modelica.Icons.RoundSensor;
 
-  Modelica.Electrical.Analog.Interfaces.PositivePin p "Positive pin"
+  Modelica.Electrical.Analog.Interfaces.PositivePin p "Positive electrical pin"
     annotation (Placement(transformation(extent={{-110,-10},{-90,10}})));
-  Modelica.Electrical.Analog.Interfaces.NegativePin n "Negative pin"
+  Modelica.Electrical.Analog.Interfaces.NegativePin n "Negative electrical pin"
     annotation (Placement(transformation(extent={{90,-10},{110,10}})));
   Modelica.Blocks.Interfaces.RealOutput v(unit="V")
     "Fault-affected measured voltage"
     annotation (Placement(transformation(origin={0,-110}, extent={{10,-10},{-10,10}}, rotation=90)));
 
   type FaultMode = enumeration(
-    Normal "Nominal MSL behavior",
-    Bias "Constant offset",
+    Normal "Nominal behaviour",
+    Bias "Additive measurement offset",
     Drift "Time-growing offset after fault onset",
-    GainError "Multiplicative calibration error",
-    NoiseIncrease "Deterministic reproducible noise increase",
-    Stuck "Hold the value captured at fault onset",
-    Dropout "Measurement loss toward zero",
-    Saturation "Symmetric output clipping");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Voltage biasFault=1 "Offset at severity one";
-  parameter Real gainFault=0.8 "Gain factor at severity one";
+    GainError "Measurement scale error",
+    NoiseIncrease "Deterministic measurement interference",
+    Stuck "Prescribed or captured measurement target",
+    Dropout "Attenuate the measurement towards zero",
+    Saturation "Symmetric measurement clipping");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Voltage biasFault=1 "Additive offset at full effect in the input or output unit";
+  parameter Real gainFault=0.8 "Gain at full fault effect";
   parameter Real driftRate(unit="V/s")=0.1
     "Voltage drift rate at severity one";
-  parameter SI.Voltage noiseAmplitude=0.01 "Added deterministic noise amplitude";
-  parameter SI.Frequency noiseFrequency=37 "Base noise frequency";
+  parameter SI.Voltage noiseAmplitude=0.01 "Amplitude of deterministic measurement interference";
+  parameter SI.Frequency noiseFrequency=37 "Base frequency of deterministic interference";
   parameter Boolean useFixedStuckValue=false
-    "Use stuckValue instead of the value captured at onset";
-  parameter SI.Voltage stuckValue=0 "Optional fixed stuck value";
+    "Use stuckValue instead of the captured measurement";
+  parameter SI.Voltage stuckValue=0 "Optional fixed measurement target at full effect";
   parameter SI.Voltage saturationLimit(min=Modelica.Constants.small)=1e6
-    "Symmetric output limit";
+    "Symmetric clipping magnitude in the measurement unit";
 
-  SI.Voltage v_actual "True non-invasive voltage measurement";
-  SI.Voltage stuckTarget;
-  SI.Time activeElapsedTime;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
+  SI.Voltage v_actual "True voltage before measurement faults";
+  SI.Voltage stuckTarget "Current prescribed or captured measurement target";
+  SI.Time activeElapsedTime "Duration of the current or most recently ended activation";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
   discrete SI.Voltage stuckMemory(start=0,fixed=true)
-    "True measurement captured at fault onset";
+    "True measurement captured at activation";
 
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -106,18 +106,7 @@ equation
 
 
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> FaultableVoltageSensor</p><p><b>Interfaces</b> Modelica.Electrical.Analog.Interfaces.PositivePin p \"Positive pin\"; Modelica.Electrical.Analog.Interfaces.NegativePin n \"Negative pin\"; Modelica.Blocks.Interfaces.RealOutput v(unit=\"V\"); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter SI.Time faultStartTime=1; parameter SI.Time faultEndTime=3; parameter SI.Time transitionTime(min=0)=0.05; parameter SI.Voltage biasFault=1 \"Offset at severity one\"; parameter Real gainFault=0.8 \"Gain factor at severity one\"; parameter Real driftRate(unit=\"V/s\")=0.1; parameter SI.Voltage noiseAmplitude=0.01 \"Added deterministic noise amplitude\"; parameter SI.Frequency noiseFrequency=37 \"Base noise frequency\"; parameter Boolean useFixedStuckValue=false; parameter SI.Voltage stuckValue=0 \"Optional fixed stuck value\"</p><p><b>Behavior</b> FaultableVoltageSensor</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p><b>Purpose</b> Fault-enhanced VoltageSensor</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The held value is the ideal physical measurement at each activation edge. The native sensing network remains unchanged.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Sensors.VoltageSensor</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p>用法：将 FaultableVoltageSensor 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>The electrical pins remain exactly non-invasive (<code>p.i=n.i=0</code>).
-Only the Real output is faulted. Normal mode and zero severity reproduce
-<code>Modelica.Electrical.Analog.Sensors.VoltageSensor</code>.</p>
-<p>Bias, drift and gain use distinct signal laws. Stuck mode captures the true
-measurement at fault onset instead of silently defaulting to zero. Noise is a
-deterministic two-tone approximation so regression tests remain reproducible.</p>
-<p><b>Evidence:</b> current/voltage sensors are commonly represented with offset
-and gain faults (Energies 8 (2015) 6509, doi:10.3390/en8076509); bias, drift,
-stuck, spike and clipping taxonomies are documented in Electronics 14 (2025)
-4532. Evidence level B; deterministic noise and dropout are level C.</p>
-</html>"),
+    Documentation(info="<html><p>The voltage measurement draws zero current from either pin. Faults alter only the output signal. Stuck captures the true measurement at each activation unless useFixedStuckValue selects stuckValue. NoiseIncrease adds a deterministic weighted sum of two sine waves. Bias, gain, dropout and clipping follow the activation envelope.</p><p>Connect p and n across the measured nodes; set the fault magnitude in V and compare v with v_actual.</p><p>Drift uses severity times elapsed active time. During recovery its offset remains at the deactivation value until effectLevel reaches zero, then vanishes.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Sensors.VoltageSensor</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
         Line(points={{-70,0},{-90,0}}, color={0,0,255}, thickness=0.5),

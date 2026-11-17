@@ -1,6 +1,6 @@
 within MSLFaults.Electrical.Analog.Sources;
-model FaultableSineVoltage "SineVoltage 独立故障增强模型"
-  type FaultMode=enumeration(Normal "正常", OutputLoss "输出丢失", AmplitudeDrift "幅值漂移", AmplitudeDrop "幅值下降", OffsetDrift "偏置漂移", FrequencyDrift "频率漂移", StuckOutput "输出卡死");
+model FaultableSineVoltage "Sinusoidal voltage source with output faults"
+  type FaultMode=enumeration(Normal "Nominal behaviour", OutputLoss "Attenuate the output towards zero", AmplitudeDrift "Scale the complete nominal waveform", AmplitudeDrop "Scale the complete nominal waveform", OffsetDrift "Additive output offset", FrequencyDrift "Scale the time-based waveform phase", StuckOutput "Interpolate towards a prescribed output");
   parameter Modelica.Units.SI.Voltage V(start=1) "Amplitude of sine wave";
   parameter Modelica.Units.SI.Angle phase=0 "Phase of sine wave";
   parameter Modelica.Units.SI.Frequency f(start=1) "Frequency of sine wave";
@@ -9,35 +9,35 @@ model FaultableSineVoltage "SineVoltage 独立故障增强模型"
 
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
   extends Modelica.Electrical.Analog.Icons.VoltageSource;
-  parameter FaultMode faultMode=FaultMode.Normal "故障模式";
-  parameter Real severity(min=0,max=1)=1 "故障严重度";
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Real amplitudeFault=0.5 "幅值漂移目标比例";
-  parameter Real offsetFault=0 "偏置漂移目标值";
-  parameter Real frequencyFault=0.5 "频率漂移目标比例";
-  parameter Real stuckOutput=0 "输出卡死值";
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real nominalOutput;
-  Real effectiveOutput;
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter Real amplitudeFault=0.5 "Scale factor applied to the complete nominal output at full effect";
+  parameter Real offsetFault=0 "Additive electrical-output offset at full effect";
+  parameter Real frequencyFault=0.5 "Frequency multiplier at full effect";
+  parameter Real stuckOutput=0 "Prescribed electrical output at full effect";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real nominalOutput "Waveform before output scaling, offset and stuck-value transformation";
+  Real effectiveOutput "Electrical output after the selected fault transformation";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -65,20 +65,7 @@ equation
         Ellipse(extent={{-70,70},{70,-70}}, lineColor={255,0,0}, lineThickness=0.75),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }),
-    Documentation(revisions="<html>
-<ul>
-<li><em> 1998   </em>
-       by Christoph Clauss<br> initially implemented<br>
-       </li>
-</ul>
-</html>",
-        info="<html><p>用法：将 FaultableSineVoltage 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>This voltage source uses the corresponding signal source of the Modelica.Blocks.Sources package. Care for the meaning of the parameters in the Blocks package. Furthermore, an offset parameter is introduced, which is added to the value calculated by the blocks source. The startTime parameter allows to shift the blocks source behavior on the time axis.</p>
-<p>
-<img src=\"modelica://Modelica/Resources/Images/Electrical/Analog/Sources/SineVoltage.png\"
-     alt=\"SineVoltage.png\">
-</p>
-</html>"));
+    Documentation(info="<html><p>The nominal output uses a sine wave after startTime and offset before it. OutputLoss scales the output towards zero; amplitude and offset modes change its magnitude; StuckOutput interpolates towards stuckOutput.</p><p>Set V, f, phase, offset and startTime. Connect p and n with the prescribed voltage sign convention and inspect effectiveOutput.</p><p>AmplitudeDrift and AmplitudeDrop use the same scale interpolation, including any nominal offset. StuckOutput uses a fixed target. FrequencyDrift scales the time-based phase expression directly; phase is not integrated from instantaneous frequency.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Sources.SineVoltage</code>.</p></html>"));
 
-  annotation(Documentation(info="<html><p><b>Purpose</b> SineVoltage 独立故障增强模型</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.Voltage V(start=1) \"Amplitude of sine wave\"; parameter Modelica.Units.SI.Angle phase=0 \"Phase of sine wave\"; parameter Modelica.Units.SI.Frequency f(start=1) \"Frequency of sine wave\"; parameter Modelica.Units.SI.Voltage offset=0 \"Output offset\"; parameter Modelica.Units.SI.Time startTime=0 \"Time offset\"; parameter FaultMode faultMode=FaultMode.Normal \"故障模式\"; parameter Real severity(min=0,max=1)=1 \"故障严重度\"; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real amplitudeFault=0.5 \"幅值漂移目标比例\"; parameter Real offsetFault=0 \"偏置漂移目标值\"</p><p><b>Behavior</b> SineVoltage 独立故障增强模型</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced SineVoltage</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Sources.SineVoltage</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p></html>"));
+  
 end FaultableSineVoltage;

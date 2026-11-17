@@ -1,5 +1,5 @@
 within MSLFaults.Thermal.FluidHeatFlow.Components;
-model FaultableOneWayValve "Simple one-way valve"
+model FaultableOneWayValve "One-way valve with branch and leakage faults"
   extends Modelica.Thermal.FluidHeatFlow.BaseClasses.TwoPort(m(start=0), final tapT=1);
 
   parameter Modelica.Units.SI.VolumeFlowRate V_flowNominal(start=1) "Nominal volume flow rate (forward)";
@@ -16,30 +16,30 @@ protected
          s > 0: forward, small pressure drop */
   constant Modelica.Units.SI.VolumeFlowRate unitVolumeFlowRate = 1;
 public
-  constant Modelica.Units.SI.Pressure unitPressureDrop = 1;  type FaultMode=enumeration(Normal "正常", StuckClosed "单向阀卡闭", StuckOpen "单向阀卡开", ForwardResistanceIncrease "正向阻力增加", ReverseLeakageIncrease "反向泄漏增加");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Pressure dpForwardFault=10*dpForward;
-  parameter Modelica.Units.SI.VolumeFlowRate reverseLeakFault=100*V_flowBackward;
-  Modelica.Units.SI.Pressure dpForward_effective;
-  Modelica.Units.SI.VolumeFlowRate V_flowBackward_effective;
-  Boolean backward_effective;
+  constant Modelica.Units.SI.Pressure unitPressureDrop = 1;  type FaultMode=enumeration(Normal "Nominal behaviour", StuckClosed "Force the reverse characteristic branch", StuckOpen "Force the forward characteristic branch", ForwardResistanceIncrease "Increase in forward pressure-drop coefficient", ReverseLeakageIncrease "Increase in reverse-flow coefficient");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mechanism" ;
+  parameter Real severity(min=0,max=1)=1 "Maximum realised fault level" ;
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault window" ;
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal fault window" ;
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp" ;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope" ;
+  Real startActivation(min=0,max=1) "Fault envelope normalised by severity" ;
+  Real endActivation(min=0,max=1) "Indicator that activation or recovery is present" ;
+  parameter Modelica.Units.SI.Pressure dpForwardFault=10*dpForward "Full-effect forward pressure-drop target" ;
+  parameter Modelica.Units.SI.VolumeFlowRate reverseLeakFault=100*V_flowBackward "Full-effect reverse-leakage target" ;
+  Modelica.Units.SI.Pressure dpForward_effective "Fault-adjusted forward pressure drop" ;
+  Modelica.Units.SI.VolumeFlowRate V_flowBackward_effective "Fault-adjusted reverse leakage" ;
+  Boolean backward_effective "Selected branch of the valve characteristic" ;
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable the selected fault mechanism";
+  parameter Boolean useExternalTrigger=false "Use trigger to request activation instead of the internal time window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested fault activation";
+  output Real effectLevel(min=0,max=1) "Realised severity-scaled fault envelope";
+  output Integer activationCount "Number of rising fault activations";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -64,13 +64,7 @@ equation
   Q_flow = frictionLoss*V_flow*dp;
 
 
-annotation (Documentation(info="<html><p><b>Purpose</b> Simple one-way valve</p><p><b>Interfaces</b> See the named arguments, record fields, or inherited connectors.</p><p><b>Parameters</b> parameter Modelica.Units.SI.VolumeFlowRate V_flowNominal(start=1) \"Nominal volume flow rate (forward)\"; parameter Modelica.Units.SI.Pressure dpForward(displayUnit=\"bar\")=1e-6 \"Pressure drop at nominal flow (forward)\"; parameter Modelica.Units.SI.Pressure dpNominal(displayUnit=\"bar\", start=1e5) \"Nominal pressure (backward)\"; parameter Modelica.Units.SI.VolumeFlowRate V_flowBackward(start=1E-6) \"Leakage volume flow rate (backward)\"; parameter Real frictionLoss(min=0, max=1, start=0)</p><p><b>Behavior</b> Simple one-way valve</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p><b>Purpose</b> Fault-enhanced OneWayValve</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Thermal.FluidHeatFlow.Components.OneWayValve</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p><p>用法：将 FaultableOneWayValve 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>Simple one-way valve, comparable to the electrical <a href=\"modelica://Modelica.Electrical.Analog.Ideal.IdealDiode\">ideal diode</a> model.</p>
-<ul>
-<li>from flowPort_a to flowPort_b: small pressure drop, linearly dependent on volumeFlow</li>
-<li>from flowPort_b to flowPort_a: small leakage flow, linearly dependent on pressure drop</li>
-</ul>
-</html>"),
+annotation (Documentation(info="<html><p>Use the simplified MSL one-way-valve characteristic with finite forward pressure drop and reverse leakage. <code>frictionLoss</code> selects the fraction of hydraulic dissipation supplied to the medium.</p><p><code>ForwardResistanceIncrease</code> changes <code>dpForward</code> towards <code>dpForwardFault</code>; <code>ReverseLeakageIncrease</code> changes the reverse-flow target. <code>StuckClosed</code> and <code>StuckOpen</code> additionally force the reverse or forward characteristic branch when <code>effectLevel &gt; 0.5</code>. Their finite branch relations do not impose an ideal closed or lossless path.</p><p>The selected fault follows the reversible activation envelope. Read <code>effectLevel</code> during recovery as well as <code>active</code>. Nominal counterpart: <code>Modelica.Thermal.FluidHeatFlow.Components.OneWayValve</code>.</p></html>"),
   Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

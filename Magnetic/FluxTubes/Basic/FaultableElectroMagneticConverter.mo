@@ -1,40 +1,40 @@
 within MSLFaults.Magnetic.FluxTubes.Basic;
-model FaultableElectroMagneticConverter "Fault-enhanced MSL 4.0.0 ElectroMagneticConverter"
+model FaultableElectroMagneticConverter "Electromagnetic converter with turn-count and winding-resistance faults"
   Modelica.Magnetic.FluxTubes.Interfaces.PositiveMagneticPort port_p "Positive magnetic port" annotation(Placement(transformation(extent={{90,90},{110,110}}),iconTransformation(extent={{90,90},{110,110}})));
   Modelica.Magnetic.FluxTubes.Interfaces.NegativeMagneticPort port_n "Negative magnetic port" annotation(Placement(transformation(extent={{110,-110},{90,-90}}),iconTransformation(extent={{110,-110},{90,-90}})));
   Modelica.Electrical.Analog.Interfaces.PositivePin p "Positive electrical pin" annotation(Placement(transformation(extent={{-90,90},{-110,110}}),iconTransformation(extent={{-90,90},{-110,110}})));
   Modelica.Electrical.Analog.Interfaces.NegativePin n "Negative electrical pin" annotation(Placement(transformation(extent={{-110,-110},{-90,-90}}),iconTransformation(extent={{-110,-110},{-90,-90}})));
-  Modelica.Units.SI.Voltage v;
-  Modelica.Units.SI.Current i(start=0,stateSelect=StateSelect.prefer);
-  Modelica.Units.SI.MagneticPotentialDifference V_m;
-  Modelica.Units.SI.MagneticFlux Phi;
+  Modelica.Units.SI.Voltage v "Voltage from p to n";
+  Modelica.Units.SI.Current i(start=0,stateSelect=StateSelect.prefer) "Current entering pin p";
+  Modelica.Units.SI.MagneticPotentialDifference V_m "Magnetic potential at port_p minus that at port_n";
+  Modelica.Units.SI.MagneticFlux Phi "Magnetic flux entering port_p";
   parameter Real N=1 "Number of turns";
-  Modelica.Units.SI.MagneticFlux Psi;
-  Modelica.Units.SI.Inductance L_stat;
-  type FaultMode=enumeration(Normal, TurnCountDrift, TurnLoss, WindingOpen, ShortedTurns, CouplingLoss);
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Real NFault(min=Modelica.Constants.eps)=0.5*N;
-  parameter Modelica.Units.SI.Resistance ROpen=1e9;
-  parameter Modelica.Units.SI.Resistance RShortedTurns=1e-6;
-  Real faultActivation(min=0,max=1),startActivation(min=0,max=1),endActivation(min=0,max=1),N_effective(min=Modelica.Constants.eps);
-  Modelica.Units.SI.Resistance R_series_effective;
+  Modelica.Units.SI.MagneticFlux Psi "Flux linkage used by the winding relation";
+  Modelica.Units.SI.Inductance L_stat "Magnitude of apparent inductance derived from flux linkage and current";
+  type FaultMode=enumeration(Normal "Nominal component relation", TurnCountDrift "Changed effective turn count", TurnLoss "Reduced effective turn count", WindingOpen "Latched finite series resistance", ShortedTurns "Reduced effective turns with the declared winding approximation", CouplingLoss "Reduced effective turn count");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  parameter Real NFault(min=Modelica.Constants.eps)=0.5*N "Effective turn count at full turn-change effect";
+  parameter Modelica.Units.SI.Resistance ROpen=1e9 "Added series resistance at full winding-open effect";
+  parameter Modelica.Units.SI.Resistance RShortedTurns=1e-6 "Added series resistance at full shorted-turn effect";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law",startActivation(min=0,max=1) "Activation envelope divided by positive severity",endActivation(min=0,max=1) "One while activation or its recovery envelope remains present",N_effective(min=Modelica.Constants.eps) "Turn count used by the electromagnetic relations";
+  Modelica.Units.SI.Resistance R_series_effective "Added winding series resistance";
 protected
   constant Real eps=100*Modelica.Constants.eps;
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
-  Modelica.Units.SI.Power electricalPower,magneticPower,lossPower,parameterPower;
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
+  Modelica.Units.SI.Power electricalPower "Electrical power entering the winding",magneticPower "Signed magnetic power from potential difference and flux rate",lossPower "Resistive winding power",parameterPower "Power residual associated with prescribed winding-parameter variation";
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=faultMode==FaultMode.WindingOpen,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
@@ -69,7 +69,7 @@ equation
   lossPower=R_series_effective*i*i;
   parameterPower=lossPower-electricalPower-magneticPower;
   annotation(
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced MSL 4.0.0 ElectroMagneticConverter</p><p><b>Interfaces</b> Modelica.Magnetic.FluxTubes.Interfaces.PositiveMagneticPort port_p \"Positive magnetic port\"; Modelica.Magnetic.FluxTubes.Interfaces.NegativeMagneticPort port_n \"Negative magnetic port\"; Modelica.Electrical.Analog.Interfaces.PositivePin p \"Positive electrical pin\"; Modelica.Electrical.Analog.Interfaces.NegativePin n \"Negative electrical pin\"</p><p><b>Parameters</b> parameter Real N=1 \"Number of turns\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real NFault(min=Modelica.Constants.eps)=0.5*N; parameter Modelica.Units.SI.Resistance ROpen=1e9; parameter Modelica.Units.SI.Resistance RShortedTurns=1e-6</p><p><b>Behavior</b> Fault-enhanced MSL 4.0.0 ElectroMagneticConverter</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ElectromechanicalFaultEffects\">MSLFaults.Examples.ElectromechanicalFaultEffects</a></p><p><b>Purpose</b> Fault-enhanced ElectroMagneticConverter</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Changing the effective number of turns is a behavioral approximation. Both magnetic potential and electrical induction use the same turns. Parameter power is reported as the residual after winding dissipation.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery. WindingOpen latch until a new simulation. faultEndTime does not repair a latched fault.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Magnetic.FluxTubes.Basic.ElectroMagneticConverter</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ElectromechanicalFaultEffects\">MSLFaults.Examples.ElectromechanicalFaultEffects</a></p><p>用法：将 FaultableElectroMagneticConverter 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p></html>"),
+    Documentation(info="<html><p>TurnCountDrift, TurnLoss, CouplingLoss and ShortedTurns vary N_effective. ShortedTurns also adds RShortedTurns; WindingOpen adds ROpen and latches. Flux linkage Psi=N_effective*Phi is differentiated in the electrical relation.</p><p>Connect p and n and both magnetic ports; set N, NFault and winding resistance targets, and inspect the power diagnostics.</p><p>parameterPower=lossPower-electricalPower-magneticPower records the variable-turn contribution under the declared port signs. ShortedTurns is a reduced-order turn/resistance model, not a separate shorted winding circuit.</p><p>Nominal reference: <code>Modelica.Magnetic.FluxTubes.Basic.ElectroMagneticConverter</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     defaultComponentName="converter",Icon(coordinateSystem(preserveAspectRatio=false,extent={{-100,-100},{100,100}}),
       graphics={
         Rectangle(extent={{-53,-69},{45,69}}, lineColor={255,0,0}, fillColor={255,255,255}, fillPattern=FillPattern.None, pattern=LinePattern.Solid, lineThickness=0.8, radius=0),

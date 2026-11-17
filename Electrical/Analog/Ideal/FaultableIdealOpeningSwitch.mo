@@ -1,43 +1,43 @@
 within MSLFaults.Electrical.Analog.Ideal;
-model FaultableIdealOpeningSwitch "IdealOpeningSwitch independent fault model"
+model FaultableIdealOpeningSwitch "Boolean-controlled opening switch with contact faults"
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
-  parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5;
-  parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5;
+  parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5 "Resistance in the closed state";
+  parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5 "Conductance in the open state";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(final T=293.15);
   Modelica.Blocks.Interfaces.BooleanInput control annotation(Placement(transformation(origin={0,120},extent={{-20,-20},{20,20}},rotation=270)));
-  type FaultMode=enumeration(Normal "正常", StuckOpen "卡在开路", StuckClosed "卡在闭合", ContactResistanceIncrease "接触电阻增加", LeakageIncrease "关断泄漏增加");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Resistance RonFault=1;
-  parameter Modelica.Units.SI.Conductance GoffFault=1e-2;
-  Boolean off;
-  Boolean naturalOff;
+  type FaultMode=enumeration(Normal "Nominal behaviour", StuckOpen "Force the open relation above the effect threshold", StuckClosed "Force the closed relation above the effect threshold", ContactResistanceIncrease "Increased closed-state resistance", LeakageIncrease "Increased leakage conductance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter Modelica.Units.SI.Resistance RonFault=1 "Closed-state resistance at full fault effect";
+  parameter Modelica.Units.SI.Conductance GoffFault=1e-2 "Open-state conductance at full fault effect";
+  Boolean off "Effective open-state selection";
+  Boolean naturalOff "Open-state selection without forced-state faults";
   Real s(final unit="1");
-  constant Modelica.Units.SI.Voltage unitVoltage=1;
-  constant Modelica.Units.SI.Current unitCurrent=1;
-  Modelica.Units.SI.Resistance Ron_effective;
-  Modelica.Units.SI.Conductance Goff_effective;
+  constant Modelica.Units.SI.Voltage unitVoltage=1 "Voltage scale for the normalised characteristic";
+  constant Modelica.Units.SI.Current unitCurrent=1 "Current scale for the normalised characteristic";
+  Modelica.Units.SI.Resistance Ron_effective "Effective closed-state resistance";
+  Modelica.Units.SI.Conductance Goff_effective "Effective open-state conductance";
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -58,25 +58,7 @@ equation
 
 
   annotation (defaultComponentName="switch",
-    Documentation(info="<html><p><b>Purpose</b> IdealOpeningSwitch independent fault model</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(final T=293.15); Modelica.Blocks.Interfaces.BooleanInput control; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.Resistance Ron(final min=0)=1e-5; parameter Modelica.Units.SI.Conductance Goff(final min=0)=1e-5; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Resistance RonFault=1; parameter Modelica.Units.SI.Conductance GoffFault=1e-2; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> IdealOpeningSwitch independent fault model</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced IdealOpeningSwitch</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Ideal.IdealOpeningSwitch</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableIdealOpeningSwitch 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-The switching behaviour of the ideal opening switch is controlled by the input signal control: off = control.<br>
-For further details, see partial model <a href=\"modelica://Modelica.Electrical.Analog.Interfaces.IdealSwitch\">IdealSwitch</a>.
-</p>
-</html>",
-        revisions="<html>
-<ul>
-<li><em>February 7, 2016   </em>
-       by Anton Haumer<br> extending from partial IdealSwitch<br>
-       </li>
-<li><em> March 11, 2009   </em>
-       by Christoph Clauss<br> conditional heat port added<br>
-       </li>
-<li><em> 1998   </em>
-       by Christoph Clauss<br> initially implemented<br>
-       </li>
-</ul>
-</html>"),
+    Documentation(info="<html><p>The nominal switch is open when control. StuckOpen and StuckClosed override that state; ContactResistanceIncrease changes Ron and LeakageIncrease changes Goff. The optional heat port receives v*i.</p><p>Connect p, n and control; set RonFault or GoffFault for parametric faults and inspect off and LossPower.</p><p>Forced switch positions require effectLevel&gt;0.5; at severity&lt;=0.5 they are never selected. Resistance and leakage changes follow the continuous envelope.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Ideal.IdealOpeningSwitch</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

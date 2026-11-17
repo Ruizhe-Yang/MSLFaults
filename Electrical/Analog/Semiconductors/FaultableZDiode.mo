@@ -1,63 +1,63 @@
 within MSLFaults.Electrical.Analog.Semiconductors;
-model FaultableZDiode "Fault-enhanced MSL 4.0.0 Zener diode"
+model FaultableZDiode "Zener diode with junction, breakdown and leakage faults"
   import SI = Modelica.Units.SI;
   extends Modelica.Electrical.Analog.Interfaces.OnePort;
   parameter SI.Current Ids=1e-6;
-  parameter SI.Voltage Vt(min=Modelica.Constants.small)=0.04;
-  parameter Real Maxexp(final min=Modelica.Constants.small)=30;
+  parameter SI.Voltage Vt(min=Modelica.Constants.small)=0.04 "Nominal junction voltage scale";
+  parameter Real Maxexp(final min=Modelica.Constants.small)=30 "Upper argument for exponential-to-linear continuation";
   parameter SI.Resistance R=1e8;
-  parameter SI.Voltage Bv=5.1;
-  parameter SI.Current Ibv=0.7;
-  parameter Real Nbv=0.74;
+  parameter SI.Voltage Bv=5.1 "Nominal reverse breakdown voltage";
+  parameter SI.Current Ibv=0.7 "Breakdown-current scale";
+  parameter Real Nbv=0.74 "Breakdown emission coefficient";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=293.15);
 
   type FaultMode=enumeration(
-    Normal "Nominal MSL behavior",
+    Normal "Nominal behaviour",
     SaturationCurrentDrift "Progressive transport-current drift",
-    ForwardVoltageDrift "Progressive forward I-V scale drift",
+    ForwardVoltageDrift "Forward-conduction voltage change",
     BreakdownVoltageDrift "Progressive Zener-voltage drift",
     ReverseLeakageIncrease "Parallel leakage increase",
-    OpenCircuit "Finite high-resistance open circuit",
-    ShortCircuit "Finite low-resistance shunt");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter SI.Time faultStartTime=1;
-  parameter SI.Time faultEndTime=3;
-  parameter SI.Time transitionTime(min=0)=0.05;
-  parameter SI.Time driftTime(min=Modelica.Constants.small)=1;
-  parameter SI.Current IdsFault=10*Ids;
-  parameter SI.Voltage VtFault=1.5*Vt;
-  parameter SI.Voltage BvFault=0.7*Bv;
-  parameter SI.Resistance RLeakFault=R/100;
-  parameter SI.Resistance ROpen=1e12;
-  parameter SI.Resistance RShort=1e-6;
+    OpenCircuit "Finite open-circuit equivalent",
+    ShortCircuit "Finite short-circuit equivalent");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  parameter SI.Time driftTime(min=Modelica.Constants.small)=1 "Time to reach the full progressive-drift target";
+  parameter SI.Current IdsFault=10*Ids "Saturation current at completed drift";
+  parameter SI.Voltage VtFault=1.5*Vt "Junction voltage scale at completed drift";
+  parameter SI.Voltage BvFault=0.7*Bv "Breakdown voltage at completed drift";
+  parameter SI.Resistance RLeakFault=R/100 "Parallel resistance at full leakage effect";
+  parameter SI.Resistance ROpen=1e12 "Finite open-circuit resistance";
+  parameter SI.Resistance RShort=1e-6 "Finite short-circuit resistance";
 
-  Real faultActivation(min=0,max=1);
-  Real driftActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real driftProgress(min=0,max=1);
-  Real diodeConductionFactor(min=0,max=1);
-  SI.Current Ids_effective;
-  SI.Voltage Vt_effective;
-  SI.Voltage Bv_effective;
-  SI.Resistance R_effective;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real driftActivation(min=0,max=1) "Fault envelope multiplied by progressive drift";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  Real driftProgress(min=0,max=1) "Elapsed activation time divided by driftTime, limited to one";
+  Real diodeConductionFactor(min=0,max=1) "Remaining fraction of semiconductor conduction";
+  SI.Current Ids_effective "Effective saturation current";
+  SI.Voltage Vt_effective "Effective junction voltage scale";
+  SI.Voltage Bv_effective "Effective breakdown voltage";
+  SI.Resistance R_effective "Effective parallel junction resistance";
   SI.Current i_semiconductor;
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -97,14 +97,7 @@ equation
 
 
   annotation(defaultComponentName="diode",
-    Documentation(info="<html><p><b>Purpose</b> Fault-enhanced MSL 4.0.0 Zener diode</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.OnePort; extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(T=293.15); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter SI.Current Ids=1e-6; parameter SI.Voltage Vt(min=Modelica.Constants.small)=0.04; parameter Real Maxexp(final min=Modelica.Constants.small)=30; parameter SI.Resistance R=1e8; parameter SI.Voltage Bv=5.1; parameter SI.Current Ibv=0.7; parameter Real Nbv=0.74; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter SI.Time faultStartTime=1; parameter SI.Time faultEndTime=3; parameter SI.Time transitionTime(min=0)=0.05</p><p><b>Behavior</b> Fault-enhanced MSL 4.0.0 Zener diode</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced ZDiode</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Semiconductors.ZDiode</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableZDiode 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>Fault modes act independently on the MSL Zener-diode I-V parameters:
-transport current, forward scale, breakdown voltage and parallel leakage.
-Normal mode and zero severity reproduce MSL 4.0.0.</p>
-<p><b>Evidence:</b> NASA reports document radiation-induced forward-voltage and
-leakage changes and finite changes of Zener voltage (NTRS 19720010112,
-19700022435). Evidence level A for directions and B/C for the lumped mapping.</p>
-</html>"),
+    Documentation(info="<html><p>Combine forward and reverse-breakdown exponential currents with a parallel resistance. Saturation-current, forward-voltage-scale and breakdown-voltage drift use driftTime. Leakage changes the parallel resistance; OpenCircuit suppresses the semiconductor current and ShortCircuit adds a finite shunt.</p><p>Set Bv and the other nominal junction parameters, then configure BvFault, IdsFault, VtFault or the selected resistance target.</p><p>The electrical law has no temperature dependence; the optional heat port exports dissipated power. The short-circuit mode retains both junction-current terms.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Semiconductors.ZDiode</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true,extent={{-100,-100},{100,100}}),
       graphics={
         Polygon(points={{30,0},{-30,40},{-30,-40},{30,0}}, lineColor={255,0,0}, fillColor={255,255,255}, fillPattern=FillPattern.Solid, lineThickness=0.75),

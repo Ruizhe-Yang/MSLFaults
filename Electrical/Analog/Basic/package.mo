@@ -1,5 +1,5 @@
 within MSLFaults.Electrical.Analog;
-package Basic "Basic"
+package Basic "Passive and controlled electrical components"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Basic "Basic"
         Text(extent={{-25.5,-11.05},{25.5,11.05}}, textString="R", textColor={64,64,64}, fontSize=0),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Resistors, capacitors, inductors, transformers, controlled sources and variable components with configurable parameter and connection-equivalent faults.</p></html>"));
 end Basic;

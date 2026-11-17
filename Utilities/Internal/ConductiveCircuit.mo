@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model ConductiveCircuit "Heat a lumped capacity through the declared path to ambient"
+model ConductiveCircuit "Heated capacity with a replaceable conductive path"
   Modelica.Thermal.HeatTransfer.Sources.FixedHeatFlow heater(Q_flow=100) annotation(Placement(transformation(origin={-153,62},extent={{-15,-15},{15,15}},rotation=0)));
   replaceable Modelica.Thermal.HeatTransfer.Components.HeatCapacitor capacity annotation(Placement(transformation(origin={-42,-24},extent={{-17,-17},{17,17}},rotation=0))) constrainedby Modelica.Thermal.HeatTransfer.Components.HeatCapacitor(C=100,T(start=300,fixed=true));
   replaceable Modelica.Thermal.HeatTransfer.Components.ThermalConductor heatPath annotation(Placement(transformation(origin={14,62},extent={{-17,-17},{17,17}},rotation=0))) constrainedby Modelica.Thermal.HeatTransfer.Components.ThermalConductor(G=10);
@@ -28,5 +28,5 @@ equation
         Line(points={{44,19},{65,19},{65,-41}}, color={191,0,0}, thickness=0.6, pattern=LinePattern.Solid),
         Text(extent={{-13,-31},{38,-61}}, textString="G", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Heat a lumped capacity through the declared path to ambient</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> temperature</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ThermalDegradation\">MSLFaults.Examples.ThermalDegradation</a></p></html>"));
+      }),Documentation(info="<html><p>Supply 100 W to a thermal capacity connected through a conductor to a 300 K environment. The native constraints use 100 J/K, an initial temperature of 300 K and a conductance of 10 W/K. <code>temperature</code> reports the capacity temperature.</p><p>Redeclare capacity or heatPath to isolate changes in thermal storage or conductance.</p></html>"));
 end ConductiveCircuit;

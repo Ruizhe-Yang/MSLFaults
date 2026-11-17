@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableBrake "Brake based on Coulomb friction"
+model FaultableBrake "Translational brake with a fault-adjusted normal force"
 
   extends Modelica.Mechanics.Translational.Interfaces.PartialElementaryTwoFlangesAndSupport2;
   extends Modelica.Thermal.HeatTransfer.Interfaces.PartialElementaryConditionalHeatPortWithoutT;
@@ -14,41 +14,41 @@ model FaultableBrake "Brake based on Coulomb friction"
 
   Modelica.Units.SI.Position s "Absolute position of flange_a and of flange_b";
   Modelica.Units.SI.Force f "Brake friction force";
-  Modelica.Units.SI.Velocity v "Absolute velocity of flange_a and flange_b";
-  Modelica.Units.SI.Acceleration a "Absolute acceleration of flange_a and flange_b";
+  Modelica.Units.SI.Velocity v "Velocity used by the support-friction law";
+  Modelica.Units.SI.Acceleration a "Acceleration used by the support-friction law";
 
   Real mu0 "Friction coefficient for v=0 and forward sliding";
   Modelica.Units.SI.Force fn "Normal force (=fn_max*f_normalized)";
 
   // Constant auxiliary variable
   Modelica.Blocks.Interfaces.RealInput f_normalized
-    "Normalized force signal 0..1 (normal force = fn_max*f_normalized; brake is active if > 0)"
+    "Normalised force signal 0..1 (normal force = fn_max*f_normalized; brake is active if > 0)"
     annotation (Placement(transformation(
         origin={0,110},
         extent={{20,-20},{-20,20}},
         rotation=90)));
-  type FaultMode=enumeration(Normal "正常", FrictionLoss "摩擦下降", FrictionIncrease "摩擦增加", Slipping "打滑", Sticking "卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Real frictionScaleFault(min=0)=0.5;
-  parameter Real stickingScale(min=1)=1000;
-  Real frictionScale;
+  type FaultMode=enumeration(Normal "Nominal component relation", FrictionLoss "Reduced friction", FrictionIncrease "Increased friction", Slipping "Reduced sliding friction", Sticking "Increased static resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Real frictionScaleFault(min=0)=0.5 "Normal-force multiplier at full friction-loss or slip effect";
+  parameter Real stickingScale(min=1)=1000 "Friction multiplier at full sticking effect";
+  Real frictionScale "Effective friction multiplier";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -111,84 +111,7 @@ equation
   lossPower = f*v_relfric;
 
 
-  annotation (Documentation(info="<html><p><b>Purpose</b> Brake based on Coulomb friction</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.RealInput f_normalized; Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Real mu_pos[:, 2]=[0, 0.5]; parameter Real peak(final min=1) = 1; parameter Real cgeo(final min=0) = 1; parameter Modelica.Units.SI.Force fn_max(final min=0, start=1) \"Maximum normal force\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real frictionScaleFault(min=0)=0.5; parameter Real stickingScale(min=1)=1000; parameter Boolean enabled=true \"Enable the selected fault mode\"</p><p><b>Behavior</b> Brake based on Coulomb friction</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced Brake</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.Brake</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableBrake 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-This component models a <strong>brake</strong>, i.e., a component where a frictional
-force is acting between the housing and a flange and a controlled normal
-force presses the flange to the housing in order to increase friction.
-The normal force fn has to be provided as input signal f_normalized in a normalized form
-(0 &le; f_normalized &le; 1),
-fn = fn_max*f_normalized, where fn_max has to be provided as parameter.
-Friction in the brake is modelled in the following way:
-</p>
-<p>
-When the absolute velocity \"v\" is not zero, the friction force
-is a function of the velocity dependent friction coefficient mu(v), of
-the normal force \"fn\", and of a geometry constant \"cgeo\" which takes into
-account the geometry of the device and the assumptions on the friction
-distributions:
-</p>
-<blockquote><pre>
-frictional_force = <strong>cgeo</strong> * <strong>mu</strong>(v) * <strong>fn</strong>
-</pre></blockquote>
-<p>
-   Typical values of coefficients of friction <strong>mu</strong>:
-</p>
-<ul>
-  <li>0.2&nbsp;&hellip;&nbsp;0.4 for dry operation,</li>
-  <li>0.05&nbsp;&hellip;&nbsp;0.1 when operating in oil.</li>
-</ul>
-<p>
-    The positive part of the friction characteristic <strong>mu</strong>(v),
-    v >= 0, is defined via table mu_pos (first column = v,
-    second column = mu). Currently, only linear interpolation in
-    the table is supported.
-</p>
-<p>
-   When the absolute velocity becomes zero, the elements
-   connected by the friction element become stuck, i.e., the absolute
-   position remains constant. In this phase the friction force is
-   calculated from a force balance due to the requirement, that
-   the absolute acceleration shall be zero.  The elements begin
-   to slide when the friction force exceeds a threshold value,
-   called the  maximum static friction force, computed via:
-</p>
-<blockquote><pre>
-frictional_force = <strong>peak</strong> * <strong>cgeo</strong> * <strong>mu</strong>(w=0) * <strong>fn</strong>   (<strong>peak</strong> >= 1)
-</pre></blockquote>
-<p>
-This procedure is implemented in a \"clean\" way by state events and
-leads to continuous/discrete systems of equations if friction elements
-are dynamically coupled. The method is described in:
-</p>
-<dl>
-<dt>Otter M., Elmqvist H., and Mattsson S.E. (1999):</dt>
-<dd><strong>Hybrid Modeling in Modelica based on the Synchronous
-    Data Flow Principle</strong>. CACSD'99, Aug. 22.-26, Hawaii.</dd>
-</dl>
-<p>
-More precise friction models take into account the elasticity of the
-material when the two elements are \"stuck\", as well as other effects,
-like hysteresis. This has the advantage that the friction element can
-be completely described by a differential equation without events. The
-drawback is that the system becomes stiff (about 10-20 times slower
-simulation) and that more material constants have to be supplied which
-requires more sophisticated identification. For more details, see the
-following references, especially (Armstrong and Canudas de Wit 1996):
-</p>
-<dl>
-<dt>Armstrong B. (1991):</dt>
-<dd><strong>Control of Machines with Friction</strong>. Kluwer Academic
-    Press, Boston MA.<br><br></dd>
-<dt>Armstrong B., and Canudas de Wit C. (1996):</dt>
-<dd><strong>Friction Modeling and Compensation.</strong>
-    The Control Handbook, edited by W.S.Levine, CRC Press,
-    pp. 1369-1382.<br><br></dd>
-<dt>Canudas de Wit C., Olsson H., &Aring;str&ouml;m K.J., and Lischinsky P. (1995):</dt>
-<dd><strong>A new model for control of systems with friction.</strong>
-    IEEE Transactions on Automatic Control, Vol. 40, No. 3, pp. 419-425.<br><br></dd>
-</dl>
-</html>"),
+  annotation (Documentation(info="<html><p>FrictionLoss and Slipping share a multiplier on the commanded normal force. FrictionIncrease uses 1+effectLevel; Sticking approaches stickingScale. The scaled force affects both static and sliding friction.</p><p>Supply f_normalized, set fn_max and mu_pos, and select frictionScaleFault or stickingScale; inspect f and lossPower.</p><p>A non-positive normal force releases the brake. Sticking is a finite friction increase, not an imposed position constraint.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.Brake</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
        Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},
             {100,100}}),
       graphics={

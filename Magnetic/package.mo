@@ -1,5 +1,5 @@
 within MSLFaults;
-package Magnetic "Magnetic"
+package Magnetic "Faultable magnetic circuit components and sensors"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Magnetic "Magnetic"
         Line(points={{4.25,50.15},{31.45,50.15}}, color={255,127,0}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Flux-tube models for magnetic parameter changes, winding effects and measurement errors. Connect magnetic ports consistently and provide the required electrical or control interfaces.</p></html>"));
 end Magnetic;

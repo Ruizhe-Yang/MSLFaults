@@ -1,5 +1,5 @@
 within MSLFaults.Thermal.FluidHeatFlow;
-package Components "Components"
+package Components "Simplified pipes and valves with faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,5 +9,5 @@ package Components "Components"
         Line(points={{0,-40.8},{0,-59.5}}, color={191,0,0}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Line(points={{29.75,-40.8},{29.75,-59.5}}, color={191,0,0}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Pipe, valve and one-way-valve fault models based on the simplified thermal-fluid relations. Check pressure-loss and heat-exchange assumptions for each class.</p></html>"));
 end Components;

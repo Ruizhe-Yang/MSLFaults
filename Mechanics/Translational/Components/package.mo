@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Translational;
-package Components "Components"
+package Components "Translational components with configurable fault effects"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -9,4 +9,5 @@ package Components "Components"
         Line(points={{-37.4,48.45},{37.4,48.45}}, color={64,64,64}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Mass, compliance, friction, contact and vehicle models. The constitutive or applied-force changes are described per component; locking modes use their declared finite or kinematic approximation.</p></html>"));
 end Components;

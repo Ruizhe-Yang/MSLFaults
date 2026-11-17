@@ -1,5 +1,5 @@
 within MSLFaults.Electrical.Analog;
-package Ideal "Ideal"
+package Ideal "Ideal switching and amplification components"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -10,4 +10,5 @@ package Ideal "Ideal"
         Ellipse(extent={{25.5,-4.25},{34,4.25}}, lineColor={64,64,64}, fillColor={255,255,255}, fillPattern=FillPattern.Solid, pattern=LinePattern.Solid, lineThickness=0.6),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Ideal switches, a diode, operational amplifiers and a transformer with explicit fault laws. Inspect each model for switching thresholds and the effect of ideal constraints.</p></html>"));
 end Ideal;

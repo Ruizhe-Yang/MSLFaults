@@ -1,33 +1,33 @@
 within MSLFaults.Mechanics.Translational.Components;
-model FaultableDamper "Linear 1D translational damper"
+model FaultableDamper "Translational damper with configurable effective damping"
   extends Modelica.Mechanics.Translational.Interfaces.PartialCompliantWithRelativeStates;
   parameter Modelica.Units.SI.TranslationalDampingConstant d(final min=0, start=0)
     "Damping constant";
   extends
     Modelica.Thermal.HeatTransfer.Interfaces.PartialElementaryConditionalHeatPortWithoutT;
-  type FaultMode=enumeration(Normal "正常", DampingLoss "阻尼下降", DampingIncrease "阻尼增加", Leakage "阻尼泄漏", Seizure "卡死");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d;
-  parameter Modelica.Units.SI.TranslationalDampingConstant dSeized=1e12;
-  Modelica.Units.SI.TranslationalDampingConstant d_effective;
+  type FaultMode=enumeration(Normal "Nominal component relation", DampingLoss "Reduced damping", DampingIncrease "Configured damping increase", Leakage "Leakage-related damping change", Seizure "Increased finite mechanical resistance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault law";
+  parameter Real severity(min=0,max=1)=1 "Scale of the activation envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault request";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal half-open fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a complete activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Activation envelope used by the fault law";
+  Real startActivation(min=0,max=1) "Activation envelope divided by positive severity";
+  Real endActivation(min=0,max=1) "One while activation or its recovery envelope remains present";
+  parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d "Damping target for the selected fault law";
+  parameter Modelica.Units.SI.TranslationalDampingConstant dSeized=1e12 "Finite damping at full seizure effect";
+  Modelica.Units.SI.TranslationalDampingConstant d_effective "Damping used by the constitutive relation";
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
-  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
+  parameter Boolean enabled=true "Enable activation of the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use trigger in place of the internal fault window" annotation(Evaluate=true);
+  Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger "External Boolean activation request"
     annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
-  parameter Modelica.Units.SI.TranslationalDampingConstant dIncrease=2*d "Target for increased damping";
+  output Boolean active "Requested or latched activation state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of rising activations, including an initially active request";
+  parameter Modelica.Units.SI.TranslationalDampingConstant dIncrease=2*d "Damping at full increase effect";
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
@@ -48,14 +48,7 @@ equation
 
   assert(d_effective>=0,"A passive damper requires nonnegative damping.");
   annotation (
-    Documentation(info="<html><p><b>Purpose</b> Linear 1D translational damper</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.TranslationalDampingConstant d(final min=0, start=0); parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.TranslationalDampingConstant dFault=0.5*d; parameter Modelica.Units.SI.TranslationalDampingConstant dSeized=1e12; parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"; parameter Modelica.Units.SI.TranslationalDampingConstant dIncrease=2*d \"Target for increased damping\"</p><p><b>Behavior</b> Linear 1D translational damper</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p><b>Purpose</b> Fault-enhanced Damper</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> Dissipation is the product of the damper load and relative rate. Seizure is a finite high-damping approximation.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Mechanics.Translational.Components.Damper</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.TranslationalStiffness\">MSLFaults.Examples.TranslationalStiffness</a></p><p>用法：将 FaultableDamper 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-<em>Linear, velocity dependent damper</em> element. It can be either connected
-between a sliding mass and the housing (model Fixed), or
-between two sliding masses.
-</p>
-
-</html>"),
+    Documentation(info="<html><p>The force is d_effective*v_rel. DampingLoss and Leakage use the same interpolation towards dFault; DampingIncrease uses dIncrease and Seizure uses dSeized. The effective coefficient must remain non-negative.</p><p>Connect the two translational flanges and configure dFault, dIncrease or dSeized; inspect f and lossPower.</p><p>Leakage follows the activation envelope without a separate leakage clock. Seizure is large finite damping.</p><p>Nominal reference: <code>Modelica.Mechanics.Translational.Components.Damper</code>. Activation uses the configured half-open fault window or the optional trigger; inspect <code>effectLevel</code> during recovery.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{
             100,100}}),
       graphics={

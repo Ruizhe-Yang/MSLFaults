@@ -1,5 +1,5 @@
 within MSLFaults.Thermal.HeatTransfer;
-package Components "Components"
+package Components "Thermal storage and transfer faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -8,5 +8,5 @@ package Components "Components"
         Line(points={{-26.35,15.3},{26.35,15.3}}, color={191,0,0}, thickness=0.9, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Line(points={{26.35,-15.3},{-26.35,-15.3}}, color={191,0,0}, thickness=0.9, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
-      }));
+      }), Documentation(info="<html><p>Heat capacity, conduction, convection, radiation and a heat-flow-to-temperature adaptor with configurable fault effects.</p></html>"));
 end Components;

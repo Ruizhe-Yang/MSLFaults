@@ -1,35 +1,35 @@
 within MSLFaults.Fluid.Sensors;
-model FaultableDensity "Density fluid sensor with local signal faults"
+model FaultableDensity "Density measurement with output faults"
   replaceable package Medium=Modelica.Media.Water.StandardWater constrainedby Modelica.Media.Interfaces.PartialMedium;
   Modelica.Fluid.Interfaces.FluidPort_a port(redeclare package Medium=Medium) annotation(Placement(transformation(extent={{-110,-10},{-90,10}})));
   Modelica.Blocks.Interfaces.RealOutput d(unit="kg/m3") annotation(Placement(transformation(extent={{100,-10},{120,10}})));
-  type FaultMode=enumeration(Normal "正常", Bias "偏置", GainError "增益误差", NoiseIncrease "噪声增加", Stuck "输出卡死", Dropout "输出丢失", Saturation "输出饱和");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Real biasFault=1;
-  parameter Real gainFault=0.9;
-  parameter Real noiseAmplitude=0.01;
-  parameter Modelica.Units.SI.Frequency noiseFrequency=37;
-  parameter Real stuckValue=0;
-  parameter Real saturationLimit=1e12;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  Real measuredActual;
+  type FaultMode=enumeration(Normal "Nominal behaviour", Bias "Additive measurement bias", GainError "Measurement gain error", NoiseIncrease "Sinusoidal measurement disturbance", Stuck "Blend towards a prescribed output", Dropout "Blend towards zero output", Saturation "Blend towards symmetric output limits");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mechanism" ;
+  parameter Real severity(min=0,max=1)=1 "Maximum realised fault level" ;
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Start of the internal fault window" ;
+  parameter Modelica.Units.SI.Time faultEndTime=3 "End of the internal fault window" ;
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp" ;
+  parameter Real biasFault=1 "Full-effect additive bias in the measured signal unit" ;
+  parameter Real gainFault=0.9 "Full-effect gain factor" ;
+  parameter Real noiseAmplitude=0.01 "Full-effect sinusoidal amplitude in the measured signal unit" ;
+  parameter Modelica.Units.SI.Frequency noiseFrequency=37 "Frequency of the sinusoidal disturbance" ;
+  parameter Real stuckValue=0 "Prescribed stuck output in the measured signal unit" ;
+  parameter Real saturationLimit=1e12 "Symmetric output limit in the measured signal unit" ;
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope" ;
+  Real startActivation(min=0,max=1) "Fault envelope normalised by severity" ;
+  Real endActivation(min=0,max=1) "Indicator that activation or recovery is present" ;
+  Real measuredActual "Physical measurement before the output fault" ;
   Modelica.Fluid.Sensors.Density nominal(redeclare package Medium=Medium);
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable the selected fault mechanism";
+  parameter Boolean useExternalTrigger=false "Use trigger to request activation instead of the internal time window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested fault activation";
+  output Real effectLevel(min=0,max=1) "Realised severity-scaled fault envelope";
+  output Integer activationCount "Number of rising fault activations";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -51,7 +51,7 @@ equation
 
 
   annotation(
-    Documentation(info="<html><p><b>Purpose</b> Density fluid sensor with local signal faults</p><p><b>Interfaces</b> Modelica.Fluid.Interfaces.FluidPort_a port(redeclare package Medium=Medium); Modelica.Blocks.Interfaces.RealOutput d(unit=\"kg/m3\"); Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> replaceable package Medium=Modelica.Media.Water.StandardWater constrainedby Modelica.Media.Interfaces.PartialMedium; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Real biasFault=1; parameter Real gainFault=0.9; parameter Real noiseAmplitude=0.01; parameter Modelica.Units.SI.Frequency noiseFrequency=37; parameter Real stuckValue=0; parameter Real saturationLimit=1e12</p><p><b>Behavior</b> Density fluid sensor with local signal faults</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.FluidValveDegradation\">MSLFaults.Examples.FluidValveDegradation</a></p><p><b>Purpose</b> Fault-enhanced Density</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Fluid.Sensors.Density</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.FluidValveDegradation\">MSLFaults.Examples.FluidValveDegradation</a></p><p>用法：将 FaultableDensity 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p></html>"),
+    Documentation(info="<html><p>Connect <code>port</code> to the fluid node and read the contained density sensor through <code>d</code>.</p><p><code>Bias</code> adds <code>biasFault</code>; <code>GainError</code> blends towards <code>gainFault</code>; <code>NoiseIncrease</code> adds a deterministic sinusoid. <code>Stuck</code> blends towards <code>stuckValue</code>, <code>Dropout</code> towards zero and <code>Saturation</code> towards symmetric clipping at <code>saturationLimit</code>. Magnitudes use the measured signal unit. These operations affect the reported signal only.</p><p>The selected fault follows the reversible activation envelope. Read <code>effectLevel</code> during recovery as well as <code>active</code>. Nominal counterpart: <code>Modelica.Fluid.Sensors.Density</code>.</p></html>"),
     Icon(graphics={
         Ellipse(extent={{-70,-70},{70,70}}, lineColor={255,0,0}, fillColor={255,255,255}, fillPattern=FillPattern.Solid, pattern=LinePattern.Solid, lineThickness=0.8),
         Line(points={{-48,23},{-39,18}}, color={64,64,64}, thickness=0.5, pattern=LinePattern.Solid),

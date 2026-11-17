@@ -1,28 +1,28 @@
 within MSLFaults.Blocks.Nonlinear;
-block FaultableFixedDelay "Independent fault-enhanced MSL 4.0.0 FixedDelay"
+block FaultableFixedDelay "Causal signal delay with variable delay and output faults"
   extends Modelica.Blocks.Interfaces.SISO;
   parameter Modelica.Units.SI.Time delayTime(start=1) "Delay time";
-  type FaultMode=enumeration(Normal, DelayDrift, DelayIncrease, DelayDecrease, Bias, Dropout);
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  parameter Modelica.Units.SI.Time delayTimeFault(min=0)=2*delayTime;
-  parameter Real biasFault=1;
-  final parameter Modelica.Units.SI.Time delayMax=max(delayTime,delayTimeFault);
+  type FaultMode=enumeration(Normal "Nominal component relation", DelayDrift "Interpolate towards the delay target", DelayIncrease "Interpolate towards the selected delay target", DelayDecrease "Interpolate towards the selected delay target", Bias "Add the configured output offset", Dropout "Attenuate the output towards zero");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected component-specific fault mechanism";
+  parameter Real severity(min=0,max=1)=1 "Maximum activation-envelope level";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the internal fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the internal fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Time for a full unit-level transition";
+  parameter Modelica.Units.SI.Time delayTimeFault(min=0)=2*delayTime "Delay target at full effect";
+  parameter Real biasFault=1 "Additive output bias at full effect";
+  final parameter Modelica.Units.SI.Time delayMax=max(delayTime,delayTimeFault) "Maximum retained delay history";
   Real faultActivation(min=0,max=1),startActivation(min=0,max=1),endActivation(min=0,max=1),y_raw;
   Modelica.Units.SI.Time delayTime_effective;
 
 public
-  parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean enabled=true "Enable requests for the selected fault mode";
+  parameter Boolean useExternalTrigger=false "Use the external trigger instead of the internal fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+     "External fault request when enabled by useExternalTrigger" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Requested or latched fault state before transition shaping";
+  output Real effectLevel(min=0,max=1) "Severity-scaled activation envelope";
+  output Integer activationCount "Number of activation starts, including initial activation";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
@@ -44,7 +44,7 @@ equation
 
 
   annotation(
-    Documentation(info="<html><p><b>Purpose</b> Independent fault-enhanced MSL 4.0.0 FixedDelay</p><p><b>Interfaces</b> Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger; output Boolean active \"Requested or latched fault\"; output Real effectLevel(min=0,max=1) \"Current realized fault effect\"; output Integer activationCount \"Number of rising activations\"</p><p><b>Parameters</b> parameter Modelica.Units.SI.Time delayTime(start=1) \"Delay time\"; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Time delayTimeFault(min=0)=2*delayTime; parameter Real biasFault=1; final parameter Modelica.Units.SI.Time delayMax=max(delayTime,delayTimeFault); parameter Boolean enabled=true \"Enable the selected fault mode\"; parameter Boolean useExternalTrigger=false \"Use trigger instead of the internal time window\"</p><p><b>Behavior</b> Independent fault-enhanced MSL 4.0.0 FixedDelay</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p><b>Purpose</b> Fault-enhanced FixedDelay</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Blocks.Nonlinear.FixedDelay</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.SensorAndSignalFaults\">MSLFaults.Examples.SensorAndSignalFaults</a></p><p>用法：将 FaultableFixedDelay 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p></html>"),
+    Documentation(info="<html><p>Delay <code>u</code> using the Modelica <code>delay</code> operator. <code>DelayDrift</code>, <code>DelayIncrease</code> and <code>DelayDecrease</code> use the same interpolation from <code>delayTime</code> to <code>delayTimeFault</code>; choose the target to obtain the required direction of change.</p><p>The retained history is bounded by <code>delayMax=max(delayTime,delayTimeFault)</code>. Configure nonnegative delays. <code>Bias</code> adds <code>effectLevel*biasFault</code> to the delayed value and <code>Dropout</code> attenuates it towards zero. The delay operator supplies the prehistory and recovery follows the activation envelope.</p></html>"),
     Icon(graphics={
         Line(points={{-74,58},{-74,-64},{68,-64}}, color={128,128,128}, thickness=0.45, pattern=LinePattern.Solid),
         Line(points={{-63,-45},{-38,-45},{-38,40},{62,40}}, color={128,128,128}, thickness=0.5, pattern=LinePattern.Dash),

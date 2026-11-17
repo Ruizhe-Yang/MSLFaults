@@ -1,5 +1,5 @@
 within MSLFaults.Examples;
-model SensorAndSignalFaults "Compare freezing, fixed output and bias against native paths with common input"
+model SensorAndSignalFaults "Compare captured outputs, fixed values and measurement bias"
   extends Modelica.Icons.Example;
   MSLFaults.Utilities.Internal.SignalCircuit nativeSignal annotation(Placement(transformation(origin={-245,118},extent={{-25,-25},{25,25}},rotation=0)));
   Modelica.Blocks.Interfaces.RealOutput nativeSignalGain annotation(Placement(transformation(origin={-172,79},extent={{-7,-7},{7,7}},rotation=0)));
@@ -34,5 +34,5 @@ equation
   connect(faultSensing.readCurrent,faultSensingCurrent) annotation(Line(points={{120,-98},{145,-98},{145,-179},{164,-179}},color={0,0,127}));
   annotation(experiment(StartTime=0,StopTime=4,Interval=0.008,Tolerance=1e-6),
     Diagram(coordinateSystem(extent={{-360,-240},{360,240}},preserveAspectRatio=true),graphics={Text(extent={{-298,207},{298,193}},textString="Independent gain, lag and limiter branches with the same input ramp",textColor={34,61,73}),Text(extent={{-272,-5},{272,-19}},textString="Physical current and voltage sensing with nominal loading",textColor={34,61,73})}),
-    Documentation(info="<html><p><b>Purpose</b> Compare freezing, fixed output and bias against native paths with common input</p><p><b>Interfaces</b> Instances and connections are shown in the Diagram layer.</p><p><b>Parameters</b> Default values are shown in the component modifiers.</p><p><b>Behavior</b> From 1 to 2 s the gain, lag and current hold their values at 1 s. Voltage gets +1 V while physical current remains time/2.</p><p><b>Initialization</b> All initial conditions are explicit in the source and component modifiers.</p><p><b>Activation and recovery</b> The given time windows follow the simulation time axis.</p><p><b>Limitations</b> This demonstration uses the declared inputs, initial conditions and idealized components.</p><p><b>Observables</b> Gain, lag, limit, voltage, current and actual load current in each branch.</p></html>"));
+    Documentation(info="<html><p>Use common ramp inputs to compare native, normal and faulted signal blocks and electrical sensors. During [1,2) s, the gain and first-order outputs are captured, the limiter is set to 0.25, the current sensor captures its measurement and the voltage sensor adds 1 V.</p><p>Plot signal and sensing outputs; inspect faultSignal.limit.y and faultSensing.actualCurrent for the unexposed limiter and true circuit current. Use the stored experiment settings.</p></html>"));
 end SensorAndSignalFaults;

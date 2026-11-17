@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model RotationalSpringPath "Prescribe a finite angular deflection of a grounded spring"
+model RotationalSpringPath "Prescribed deflection of a replaceable rotational spring"
   Modelica.Blocks.Sources.RealExpression angleCommand(y=0.02*time) annotation(Placement(transformation(origin={-181,48},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Mechanics.Rotational.Sources.Position drive(exact=true) annotation(Placement(transformation(origin={-97,48},extent={{-12,-12},{12,12}},rotation=0)));
   replaceable Modelica.Mechanics.Rotational.Components.Spring spring annotation(Placement(transformation(origin={2,48},extent={{-15,-15},{15,15}},rotation=0))) constrainedby Modelica.Mechanics.Rotational.Components.Spring(c=10);
@@ -18,5 +18,5 @@ equation
         Line(points={{-47,52},{-36,66},{-13,72},{10,68},{27,56}}, color={64,64,64}, thickness=0.7, pattern=LinePattern.Solid, arrow={Arrow.None,Arrow.Filled}),
         Text(extent={{-39,-43},{39,-72}}, textString="tau", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Prescribe a finite angular deflection of a grounded spring</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> torque</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p></html>"));
+      }),Documentation(info="<html><p>Prescribe <code>0.02*time</code> rad at one side of a replaceable spring and fix the other side. The nominal stiffness is 10 N.m/rad. <code>torque</code> reports the signed spring torque.</p><p>Redeclare spring and compare torque under the identical prescribed deflection.</p></html>"));
 end RotationalSpringPath;

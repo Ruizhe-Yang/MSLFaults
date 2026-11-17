@@ -1,12 +1,12 @@
 within MSLFaults.Electrical.Analog.Ideal;
-model FaultableControlledIdealTwoWaySwitch "Controlled ideal two-way switch"
+model FaultableControlledIdealTwoWaySwitch "Voltage-controlled changeover switch with contact faults"
   parameter Modelica.Units.SI.Voltage level=0.5 "Switch level";
-  parameter Modelica.Units.SI.Resistance Ron(final min=0) = 1e-5 "Closed switch resistance";
+  parameter Modelica.Units.SI.Resistance Ron(final min=0) = 1e-5 "Resistance in the closed state";
   parameter Modelica.Units.SI.Conductance Goff(final min=0) = 1e-5
-    "Opened switch conductance";
+    "Conductance in the open state";
   extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(final T=
         293.15);
-  Modelica.Electrical.Analog.Interfaces.PositivePin p annotation (Placement(transformation(extent={{-110,
+  Modelica.Electrical.Analog.Interfaces.PositivePin p "Positive electrical pin" annotation (Placement(transformation(extent={{-110,
             -10},{-90,10}})));
   Modelica.Electrical.Analog.Interfaces.NegativePin n2 annotation (Placement(transformation(extent={{90,
             -10},{110,10}})));
@@ -17,41 +17,41 @@ model FaultableControlledIdealTwoWaySwitch "Controlled ideal two-way switch"
         origin={0,100},
         extent={{-10,-10},{10,10}},
         rotation=90)));
-  type FaultMode=enumeration(Normal "正常", StuckPosition1 "卡在位置一", StuckPosition2 "卡在位置二", ContactResistanceIncrease "接触电阻增加", LeakageIncrease "关断泄漏增加");
-  parameter FaultMode faultMode=FaultMode.Normal;
-  parameter Real severity(min=0,max=1)=1;
-  parameter Modelica.Units.SI.Time faultStartTime=1;
-  parameter Modelica.Units.SI.Time faultEndTime=3;
-  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05;
-  Real faultActivation(min=0,max=1);
-  Real startActivation(min=0,max=1);
-  Real endActivation(min=0,max=1);
-  parameter Modelica.Units.SI.Resistance RonFault=1;
-  parameter Modelica.Units.SI.Conductance GoffFault=1e-2;
-  Boolean control_effective;
-  Boolean control_command;
-  Modelica.Units.SI.Resistance Ron_effective;
-  Modelica.Units.SI.Conductance Goff_effective;
+  type FaultMode=enumeration(Normal "Nominal behaviour", StuckPosition1 "Force the first routing above the effect threshold", StuckPosition2 "Force the second routing above the effect threshold", ContactResistanceIncrease "Increased closed-state resistance", LeakageIncrease "Increased leakage conductance");
+  parameter FaultMode faultMode=FaultMode.Normal "Selected fault mode";
+  parameter Real severity(min=0,max=1)=1 "Multiplier applied to the fault envelope";
+  parameter Modelica.Units.SI.Time faultStartTime=1 "Inclusive start of the scheduled fault window";
+  parameter Modelica.Units.SI.Time faultEndTime=3 "Exclusive end of the scheduled fault window";
+  parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05 "Duration of a full-scale activation or recovery ramp";
+  Real faultActivation(min=0,max=1) "Severity-scaled fault envelope";
+  Real startActivation(min=0,max=1) "Activation envelope divided by severity";
+  Real endActivation(min=0,max=1) "One while active or recovering, otherwise zero";
+  parameter Modelica.Units.SI.Resistance RonFault=1 "Closed-state resistance at full fault effect";
+  parameter Modelica.Units.SI.Conductance GoffFault=1e-2 "Open-state conductance at full fault effect";
+  Boolean control_effective "Effective routing selection";
+  Boolean control_command "Routing selection from the control input";
+  Modelica.Units.SI.Resistance Ron_effective "Effective closed-state resistance";
+  Modelica.Units.SI.Conductance Goff_effective "Effective open-state conductance";
 protected
   Real s1(final unit="1");
   Real s2(final unit="1") "Auxiliary variables";
-  constant Modelica.Units.SI.Voltage unitVoltage=1 annotation (HideResult=true);
-  constant Modelica.Units.SI.Current unitCurrent=1 annotation (HideResult=true);
+  constant Modelica.Units.SI.Voltage unitVoltage=1 "Voltage scale for the normalised characteristic" annotation (HideResult=true);
+  constant Modelica.Units.SI.Current unitCurrent=1 "Current scale for the normalised characteristic" annotation (HideResult=true);
 
 public
   parameter Boolean enabled=true "Enable the selected fault mode";
-  parameter Boolean useExternalTrigger=false "Use trigger instead of the internal time window" annotation(Evaluate=true);
+  parameter Boolean useExternalTrigger=false "Use trigger instead of the scheduled fault window" annotation(Evaluate=true);
   Modelica.Blocks.Interfaces.BooleanInput trigger if useExternalTrigger
-    annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
+    "External fault activation request" annotation(Placement(transformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270),
       iconTransformation(origin={60,104},extent={{-10,-10},{10,10}},rotation=270)));
-  output Boolean active "Requested or latched fault";
-  output Real effectLevel(min=0,max=1) "Current realized fault effect";
-  output Integer activationCount "Number of rising activations";
+  output Boolean active "Fault activation request state";
+  output Real effectLevel(min=0,max=1) "Severity-scaled fault envelope";
+  output Integer activationCount "Number of activation starts";
 
 protected
   MSLFaults.Utilities.Internal.Activation faultGate(enabled=enabled and faultMode<>FaultMode.Normal,
     permanent=false,severity=severity,startTime=faultStartTime,endTime=faultEndTime,
-    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger);
+    transitionTime=transitionTime,useExternalTrigger=useExternalTrigger) "Reversible fault activation envelope";
 equation
   connect(trigger,faultGate.externalTrigger);
   if not useExternalTrigger then faultGate.externalTrigger=false; end if;
@@ -78,38 +78,7 @@ equation
 
 
   annotation (defaultComponentName="switch",
-    Documentation(info="<html><p><b>Purpose</b> Controlled ideal two-way switch</p><p><b>Interfaces</b> extends Modelica.Electrical.Analog.Interfaces.ConditionalHeatPort(final T=; Modelica.Electrical.Analog.Interfaces.PositivePin p annotation (Placement(transformation(extent={{-110,; Modelica.Electrical.Analog.Interfaces.NegativePin n2 annotation (Placement(transformation(extent={{90,; Modelica.Electrical.Analog.Interfaces.NegativePin n1 annotation (Placement(transformation(extent={{90,30},{110,50}}), iconTransformation(extent={{90,30},{110,50}})))</p><p><b>Parameters</b> parameter Modelica.Units.SI.Voltage level=0.5 \"Switch level\"; parameter Modelica.Units.SI.Resistance Ron(final min=0) = 1e-5 \"Closed switch resistance\"; parameter Modelica.Units.SI.Conductance Goff(final min=0) = 1e-5; parameter FaultMode faultMode=FaultMode.Normal; parameter Real severity(min=0,max=1)=1; parameter Modelica.Units.SI.Time faultStartTime=1; parameter Modelica.Units.SI.Time faultEndTime=3; parameter Modelica.Units.SI.Time transitionTime(min=0)=0.05; parameter Modelica.Units.SI.Resistance RonFault=1; parameter Modelica.Units.SI.Conductance GoffFault=1e-2</p><p><b>Behavior</b> Controlled ideal two-way switch</p><p><b>Initialization</b> Use the declared initial values and host state modifiers.</p><p><b>Activation and recovery</b> Use the declared activation inputs and timing.</p><p><b>Limitations</b> Use the declared parameter range. The catalog identifies simulation coverage.</p><p><b>Observables</b> active; effectLevel; activationCount</p><p><b>Replacement contract</b> Use the stated native class constraint and preserve its modifiers. See the catalog for verified coverage.</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p><b>Purpose</b> Fault-enhanced ControlledIdealTwoWaySwitch</p><p><b>Interfaces</b> Native visible contract plus the optional Boolean trigger.</p><p><b>Parameters</b> The native modifiers and the local FaultMode are preserved. Default fault interval is 1 to 3 s.</p><p><b>Behavior</b> The established physical equations and fault modes use the common activation and severity law.</p><p><b>Initialization</b> The original initialization modifiers remain available.</p><p><b>Activation and recovery</b> Use the half-open time window or the optional trigger. Effect starts at zero for a positive ramp and transitions on recovery.</p><p><b>Limitations</b> Physical extremes are finite where specified. Dynamic validation coverage is stated in the release catalog.</p><p><b>Observables</b> active, effectLevel, activationCount and the component-specific physical or signal quantities.</p><p><b>Nominal MSL counterpart</b> Modelica.Electrical.Analog.Ideal.ControlledIdealTwoWaySwitch</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.ResistorReplacement\">MSLFaults.Examples.ResistorReplacement</a></p><p>用法：将 FaultableControlledIdealTwoWaySwitch 按其 MSL 对应元件连接到系统中。faultMode=Normal 或 severity=0 表示名义行为；选择其他 faultMode，并设置 severity、faultStartTime、faultEndTime 和 transitionTime 后仿真故障响应。</p>
-<p>
-The two-way switch has a positive pin p and two negative pins n1 and n2.
-The switching behaviour is controlled
-by the control pin. If its voltage exceeds the value of the parameter level,
-the pin p is connected with the negative pin n2. Otherwise, the pin p is
-connected the negative pin n1.
-</p>
-<p>
-In order to prevent singularities during switching, the opened
-switch has a (very low) conductance Goff_effective
-and the closed switch has a (very low) resistance Ron_effective.
-The limiting case is also allowed, i.e., the resistance Ron_effective of the
-closed switch could be exactly zero and the conductance Goff_effective of the
-open switch could be also exactly zero. Note, there are circuits,
-where a description with zero Ron_effective or zero Goff_effective is not possible.
-<br><br>
-<strong>Please note:</strong>
-In case of useHeatPort=true the temperature dependence of the electrical
-behavior is <strong>not</strong> modelled. The parameters are not temperature dependent.
-</p>
-</html>",
-        revisions="<html>
-<ul>
-<li><em> March 11, 2009   </em>
-       by Christoph Clauss<br> conditional heat port added<br>
-       </li>
-<li><em> 1998   </em>
-       by Christoph Clauss<br> initially implemented<br>
-       </li>
-</ul>
-</html>"),
+    Documentation(info="<html><p>When control.v&gt;level, connect p to n2; otherwise connect p to n1. StuckPosition1 selects the false routing and StuckPosition2 the true routing. ContactResistanceIncrease and LeakageIncrease modify the common branch parameters.</p><p>Connect every switching terminal and the control input; inspect control_effective, Ron_effective, Goff_effective and LossPower.</p><p>Forced switch positions require effectLevel&gt;0.5; at severity&lt;=0.5 they are never selected. Resistance and leakage changes follow the continuous envelope.</p><p>Select <code>faultMode</code> and configure the scheduled window or external trigger. <code>effectLevel</code> can remain nonzero during recovery after <code>active</code> becomes false. Nominal reference: <code>Modelica.Electrical.Analog.Ideal.ControlledIdealTwoWaySwitch</code>.</p></html>"),
     Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,
             100}}),
       graphics={

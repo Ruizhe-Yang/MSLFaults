@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics;
-package Rotational "Rotational"
+package Rotational "Rotational fault models and measurements"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -15,4 +15,5 @@ package Rotational "Rotational"
         Line(points={{30.6531,-30.6531},{40.8708,-40.8708}}, color={64,64,64}, thickness=3, pattern=LinePattern.Solid),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Shaft components and measurements for one-dimensional rotational networks. Components use torque and angle ports; sensors modify their reported signal according to the selected mode.</p></html>"));
 end Rotational;

@@ -1,9 +1,9 @@
 within MSLFaults.Utilities.Internal;
-model ValveCircuit "Compare isenthalpic two-port paths and a zero-flow pressure reading"
+model ValveCircuit "Fluid boundaries, replaceable valve and pressure measurement"
   replaceable package Medium=Modelica.Media.Water.ConstantPropertyLiquidWater constrainedby Modelica.Media.Interfaces.PartialMedium;
   inner Modelica.Fluid.System system;
-  parameter Boolean reverse=false;
-  parameter Boolean varyOpening=false;
+  parameter Boolean reverse=false "Exchange the prescribed boundary pressures";
+  parameter Boolean varyOpening=false "Use the ramped valve-opening command";
   Modelica.Fluid.Sources.Boundary_pT upstream(redeclare package Medium=Medium,nPorts=2,p=if reverse then 1e5 else 2e5,T=306) annotation(Placement(transformation(origin={-165,55},extent={{-17,-17},{17,17}},rotation=0)));
   Modelica.Fluid.Sources.Boundary_pT downstream(redeclare package Medium=Medium,nPorts=1,p=if reverse then 2e5 else 1e5,T=296) annotation(Placement(transformation(origin={164,55},extent={{-17,-17},{17,17}},rotation=180)));
   replaceable Modelica.Fluid.Valves.ValveLinear valve annotation(Placement(transformation(origin={4,55},extent={{-17,-17},{17,17}},rotation=0))) constrainedby Modelica.Fluid.Valves.ValveLinear(redeclare package Medium=Medium,m_flow_nominal=1,dp_nominal=1e5);
@@ -30,5 +30,5 @@ equation
         Line(points={{0,-52},{12,-39}}, color={64,64,64}, thickness=0.75, pattern=LinePattern.Solid),
         Line(points={{0,-32},{0,0}}, color={0,127,255}, thickness=0.6, pattern=LinePattern.Solid),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Compare isenthalpic two-port paths and a zero-flow pressure reading</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> massFlow; pressure</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.FluidValveDegradation\">MSLFaults.Examples.FluidValveDegradation</a></p></html>"));
+      }),Documentation(info="<html><p>Connect a replaceable linear valve between prescribed boundaries whose pressure difference is 100 kPa. <code>reverse</code> exchanges the pressures; <code>varyOpening</code> supplies a ramped opening command. A zero-flow pressure sensor reads the first boundary. All fluid components share <code>Medium</code>.</p><p>Redeclare valve or sensor, retain the common Medium and compare massFlow and pressure.</p></html>"));
 end ValveCircuit;

@@ -1,5 +1,5 @@
 within MSLFaults.Utilities.Internal;
-model RotationalDrive "Drive a rotor against a grounded viscous damper"
+model RotationalDrive "Torque-driven inertia with a grounded damper"
   Modelica.Blocks.Sources.Constant constantTorque(k=1) annotation(Placement(transformation(origin={-177,41},extent={{-12,-12},{12,12}},rotation=0)));
   Modelica.Mechanics.Rotational.Sources.Torque drive annotation(Placement(transformation(origin={-104,41},extent={{-12,-12},{12,12}},rotation=0)));
   replaceable Modelica.Mechanics.Rotational.Components.Inertia rotor annotation(Placement(transformation(origin={-22,41},extent={{-15,-15},{15,15}},rotation=0))) constrainedby Modelica.Mechanics.Rotational.Components.Inertia(J=0.1,w(start=0,fixed=true),phi(start=0,fixed=true));
@@ -26,5 +26,5 @@ equation
         Text(extent={{-56,4},{-21,35}}, textString="J", textColor={64,64,64}, fontSize=0),
         Text(extent={{24,-36},{59,-64}}, textString="d", textColor={64,64,64}, fontSize=0),
         Text(extent={{-150,155},{150,125}}, textString="%name", textColor={0,0,255}, fontSize=0)
-      }),Documentation(info="<html><p><b>Purpose</b> Drive a rotor against a grounded viscous damper</p><p><b>Interfaces</b> Native-constrained replaceable devices, host input and measurement outputs.</p><p><b>Parameters</b> The host sets nominal parameters in the original component constraint.</p><p><b>Behavior</b> Only the device implementations differ between the example branches.</p><p><b>Initialization</b> See nominal and modified values in the graphical view.</p><p><b>Activation and recovery</b> Set by each device instance.</p><p><b>Limitations</b> A compact fixture for the declared comparison.</p><p><b>Observables</b> speed</p><p><b>Example</b> <a href=\"modelica://MSLFaults.Examples.RotationalDamping\">MSLFaults.Examples.RotationalDamping</a></p></html>"));
+      }),Documentation(info="<html><p>Apply a constant torque of 1 N.m to a replaceable inertia connected to a grounded viscous damper. Nominal constraints use 0.1 kg.m2, zero initial angle and speed, and 0.1 N.m.s/rad damping. <code>speed</code> reports rotor angular velocity.</p><p>Redeclare rotor or damper to separate changes in transient response and steady speed.</p></html>"));
 end RotationalDrive;

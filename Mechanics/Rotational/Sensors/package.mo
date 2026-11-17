@@ -1,5 +1,5 @@
 within MSLFaults.Mechanics.Rotational;
-package Sensors "Sensors"
+package Sensors "Rotational sensors with output faults"
   extends Modelica.Icons.Package;
   annotation(Icon(coordinateSystem(preserveAspectRatio=true, extent={{-100,-100},{100,100}}),
       graphics={
@@ -13,4 +13,5 @@ package Sensors "Sensors"
         Ellipse(extent={{-3.4,-3.4},{3.4,3.4}}, lineColor={64,64,64}, fillColor={64,64,64}, fillPattern=FillPattern.Solid, pattern=LinePattern.Solid, lineThickness=0.4),
         Text(extent={{59,96},{91,63}}, textString="F", textColor={255,0,0}, fontSize=0)
       }));
+  annotation(Documentation(info="<html><p>Angle, speed, acceleration, torque and power measurements. Check the model-specific connection and output unit; the Saturation mode acts directly whenever selected.</p></html>"));
 end Sensors;
